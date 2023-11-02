@@ -1,7 +1,12 @@
 import pandas as pd
 import numpy as np
+import rpy2
+import rpy2.robjects as robjects
+import rpy2.ipython.html
+rpy2.ipython.html.init_printing()
+from rpy2.ipython.ggplot import image_png
+from rpy2.robjects.packages import importr, data
 
-# Test
 class preprocess:
     """Compiles data preprocessing steps into a cohesive, modular set of functions for RT-Quic datasets
     
@@ -320,5 +325,3 @@ class preprocess:
         print("Deleted %i sample(s) due to label inconsistency" % (len(keys_to_delete),))
 
         self.samples = samples
-
-        

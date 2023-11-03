@@ -2,7 +2,11 @@
 ### Imports
 # Python Package Imports
 import os
-os.environ['R_HOME'] = 'C:/Users/howey024/AppData/Local/Programs/R/R-4.3.2'
+import socket
+if socket.gethostname() == 'Desktop-CS1TBMI':
+  os.environ['R_HOME'] = "C:/PROGRA~1/R/R-43~1.1"
+else:
+  os.environ['R_HOME'] = 'C:/Users/howey024/AppData/Local/Programs/R/R-4.3.2'
 import glob
 import rpy2
 import rpy2.robjects as robjects
@@ -122,6 +126,28 @@ plt.xlabel('Max Point Ratio')
 plt.ylabel('Max Slope')
 plt.show()
 
+#%%
+### Run a principle component analysis
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+scaler = StandardScaler().fit(x)
+x_scaled = scaler.transform(x)
+
+pca = PCA()
+pca.fit(x_scaled)
+
+plt.plot(np.arange(len(pca.explained_variance_ratio_.cumsum())), pca.explained_variance_ratio_.cumsum())
+plt.title('Variance for Given Feature Count')
+plt.xlabel('Number of Features')
+plt.ylabel('Variance')
+plt.show()
+
+# From this we know that we need to only keep 2 features
+pca = PCA(n_components = 2)
+pca.fit(x_scaled)
+x_pca = pca.transform(x_scaled)
+x = x_pca
 # %%
 ### Attempt an unsupervised learning approach
 from sklearn.cluster import KMeans
@@ -129,6 +155,11 @@ from sklearn.metrics import ConfusionMatrixDisplay
 
 kmc = KMeans(n_clusters=2, random_state=7).fit(x)
 preds = kmc.predict(x)
+
+# Can't control which cluster gets which label, so if its exactly wrong, it just flipped the labels
+if len(preds[preds != y]) > len(y) / 2:
+  preds = 1-preds
+
 centers = kmc.cluster_centers_
 print(centers)
 
@@ -136,73 +167,109 @@ print(centers)
 pred_pos = x[preds == 1]
 pred_neg = x[preds == 0]
 
-# misclassed = []
-# for i,pred in enumerate(preds[:12]):
-#    if pred != y[i]:
-#       misclassed.append(x[i])
-# misclassed = np.array(misclassed)
+# Find data and predictions with known labels
+indices = np.arange(len(y))
+index_pos = indices[np.where(y == 1, True, False)]
+index_neg = indices[np.where(y == 0, True, False)]
+
+x_labeled = np.concatenate((x[index_pos], x[index_neg]))
+y_labeled = np.concatenate((y[index_pos], y[index_neg]))
+preds_labeled = np.concatenate((preds[index_pos], preds[index_neg]))
+
+misclassed = []
+for i,pred in enumerate(preds_labeled):
+   if pred != y_labeled[i]:
+      misclassed.append(x[i])
+misclassed = np.array(misclassed)
 
 # Plot confusion matrix on labeled data - should be perfect
-# ConfusionMatrixDisplay.from_predictions(np.concatenate((y_pos, y_neg)), preds[:12])
+ConfusionMatrixDisplay.from_predictions(y_labeled, preds_labeled, normalize='true')
 
 # Show how KMeans divided the dataset
 fig, ax = plt.subplots()
 ax.scatter(pred_pos[:, 0], pred_pos[:, 1], c='g')
-ax.scatter(pred_neg[:, 0], pred_neg[:, 1], c='r')
-# ax.scatter(misclassed[:, 0], misclassed[:, 1], c='b', marker='x')
+ax.scatter(pred_neg[:, 0], pred_neg[:, 1], c='b')
+ax.scatter(misclassed[:, 0], misclassed[:, 1], c='r', marker='x')
 ax.legend(['Positive', 'Negative'])
 plt.xlabel('Time To Threshold')
 plt.ylabel('Rate of Amyloid Formation')
 plt.show()
 
-fig, ax = plt.subplots()
-ax.scatter(pred_pos[:, 2], pred_pos[:, 3], c='g')
-ax.scatter(pred_neg[:, 2], pred_neg[:, 3], c='r')
+# fig, ax = plt.subplots()
+# ax.scatter(pred_pos[:, 2], pred_pos[:, 3], c='g')
+# ax.scatter(pred_neg[:, 2], pred_neg[:, 3], c='r')
 # ax.scatter(misclassed[:, 2], misclassed[:, 3], c='b', marker='x')
-ax.legend(['Positive', 'Negative'])
-plt.xlabel('Max Point Ratio')
-plt.ylabel('Max Slope')
-plt.show()
+# ax.legend(['Positive', 'Negative'])
+# plt.xlabel('Max Point Ratio')
+# plt.ylabel('Max Slope')
+# plt.show()
+
+print('Misclassified points are represented by a red x')
 # %%
 ### Try a small supervised approach
 from sklearn.svm import LinearSVC
+from sklearn.model_selection import train_test_split
 
+# Create a training/testing dataset
+x_train, x_test, y_train, y_test = train_test_split(x_labeled, y_labeled, test_size=0.2)
+
+# Train the model
 svc = LinearSVC()
-svc = svc.fit(np.concatenate((x_pos, x_neg)), np.concatenate((y_pos, y_neg)))
+svc = svc.fit(x_train, y_train)
+preds = svc.predict(x_test)
+
+# Plot a confusion matrix on the known data
+ConfusionMatrixDisplay.from_predictions(preds, y_test, normalize='true')
+
+# Plot on the entire dataset
 preds = svc.predict(x)
 
 # Separate into positive and negative clusters
 pred_pos = x[preds == 1]
 pred_neg = x[preds == 0]
 
-# misclassed = []
-# pred_known = np.concatenate((preds[y == 1], preds[y==0]))
-# for i,pred in enumerate(preds_known):
-#    if pred != y[i]:
-#       misclassed.append(x[i])
-# misclassed = np.array(misclassed)
+# Checking labeled predictions
+preds_labeled = np.concatenate((preds[index_pos], preds[index_neg]))
+misclassed = []
+for i,pred in enumerate(preds_labeled):
+   if pred != y_labeled[i]:
+      misclassed.append(x[i])
+misclassed = np.array(misclassed)
 
-# Plot confusion matrix on labeled data - should be perfect
-# ConfusionMatrixDisplay.from_predictions(np.concatenate((y_pos, y_neg)), preds[:12])
+def make_meshgrid(x, y, h=.02):
+    x_min, x_max = x.min() - 1, x.max() + 1
+    y_min, y_max = y.min() - 1, y.max() + 1
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h), np.arange(y_min, y_max, h))
+    return xx, yy
+
+def plot_contours(ax, clf, xx, yy, **params):
+    Z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+    out = ax.contourf(xx, yy, Z, **params)
+    return out
+
+# Set-up grid for plotting.
+X0, X1 = x[:, 0], x[:, 1]
+xx, yy = make_meshgrid(X0, X1)
 
 # Show how KMeans divided the dataset
 fig, ax = plt.subplots()
-ax.scatter(pred_pos[:, 0], pred_pos[:, 1], c='g')
-ax.scatter(pred_neg[:, 0], pred_neg[:, 1], c='r')
-# if len(misclassed) > 0:
-#   ax.scatter(misclassed[:, 0], misclassed[:, 1], c='b', marker='x')
-ax.legend(['Positive', 'Negative'])
-plt.xlabel('Time To Threshold')
-plt.ylabel('Rate of Amyloid Formation')
+plot_contours(ax, svc, xx, yy, cmap=plt.cm.coolwarm, alpha=0.8)
+ax.scatter(pred_pos[:, 0], pred_pos[:, 1], c='r')
+ax.scatter(pred_neg[:, 0], pred_neg[:, 1], c='b')
+if len(misclassed) > 0:
+  ax.scatter(misclassed[:, 0], misclassed[:, 1], c='g', marker='x')
 plt.show()
 
-fig, ax = plt.subplots()
-ax.scatter(pred_pos[:, 2], pred_pos[:, 3], c='g')
-ax.scatter(pred_neg[:, 2], pred_neg[:, 3], c='r')
+# fig, ax = plt.subplots()
+# ax.scatter(pred_pos[:, 2], pred_pos[:, 3], c='g')
+# ax.scatter(pred_neg[:, 2], pred_neg[:, 3], c='r')
 # if(len(misclassed > 0)):
 #   ax.scatter(misclassed[:, 2], misclassed[:, 3], c='b', marker='x')
-ax.legend(['Positive', 'Negative'])
-plt.xlabel('Max Point Ratio')
-plt.ylabel('Max Slope')
-plt.show()
+# ax.legend(['Positive', 'Negative'])
+# plt.xlabel('Max Point Ratio')
+# plt.ylabel('Max Slope')
+# plt.show()
+
 # %%
+### Compare to CNN

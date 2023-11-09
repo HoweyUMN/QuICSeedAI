@@ -30,7 +30,7 @@ import seaborn as sns
 ### Setting Global Variables
 SEED = 2022
 TIME_INCREMENT = 0.25
-WORKING_DIRECTORY = './refiles/wd/'
+WORKING_DIRECTORY = '../data/Format2/'
 
 #%%
 ### Read in Data (Compatibility with Stuart data)

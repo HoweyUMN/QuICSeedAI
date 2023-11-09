@@ -16,7 +16,7 @@ class preprocess:
     def __init__(self, time_increment):
         self.dataframes = {} # dictionary of dataframes 
         self.time_increment = time_increment # time between measurement for each sample
-        self.combined_dataframe = np.null
+        self.combined_dataframe = -1
         self.filenames = []
         self.timepoitns_h = []
         self.samples = {}
@@ -48,8 +48,8 @@ class preprocess:
             if(not np.all(np.array(df.iloc[:4,0].tolist()) == np.array(data[filenames[0]].iloc[:4,0].tolist()))):
                 raise Exception("Data in file {} is inconsistent with other CSV files".format(filename))
             
-        self.data = self._preprocess_data(filenames, data)
-        return self.data
+        self.dataframes = self._preprocess_data(filenames, data)
+        return self.dataframes
     
     def _correct_filenames(self, data):
         """Private function, adds filename to replicate ID for later reference"""
@@ -214,7 +214,7 @@ class preprocess:
         
         Returns list of: [numpy array of samples, numpy array of labels]"""
 
-        if(self.combined_dataframe == np.null):
+        if(type(self.combined_dataframe) == type(-1)):
             self.combine_dataframes(self.filenames)
         # Collect timepoints from first column
         self.timepoints_h = self.combined_dataframe.iloc[4:, 0].astype(float).tolist()
@@ -245,7 +245,7 @@ class preprocess:
             # Extract RT-QuIC curve
             curve = column[4:]
             curve = list(pd.to_numeric(curve, errors='coerce'))
-            self.X.append(curve)
+            X.append(curve)
             # Extract column index
             col_idx.append(j)
 
@@ -272,7 +272,7 @@ class preprocess:
         if(len(y) != len(col_idx)):
             raise ValueError("Sample labels and column identifiers are different length arrays!")
         
-        self._add_data_to_attributes(self, X, y, sample, sample_id, well_name, col_idx)
+        self._add_data_to_attributes(X, y, sample, sample_id, well_name, col_idx)
         
     def _add_data_to_attributes(self, X, y, sample, sample_id, well_name, col_idx):
         # Create dictionary of samples
@@ -301,14 +301,16 @@ class preprocess:
             samples[key]['well_count'] = len(samples[key]['y_list'])
 
                     # Check all labels are the same
-            if sum(samples[key]['ylist'])!=0 and sum(samples[key]['ylist'])!=len(samples[key]['ylist']):
-                print(samples[key]['ylist'])
+            if sum(samples[key]['y_list'])!=0 and sum(samples[key]['y_list'])!=len(samples[key]['y_list']):
+                print(samples[key]['y_list'])
                 keys_to_delete.add(key)
             else:
-                samples[key]['y'] = samples[key]['ylist'][0]
+                samples[key]['y'] = samples[key]['y_list'][0]
             
             # Convert grouped sample data to array
             samples[key]['X'] = np.array(samples[key]['X'])
+
+            sample_list = samples[key]['sample_list']
 
             # Check if all samples are the same
             sample_list = np.array(sample_list)

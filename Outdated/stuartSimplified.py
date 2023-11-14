@@ -346,21 +346,30 @@ X_train, X_test, y_train, y_test, sample_train, sample_test, keys_train, keys_te
 ### Model Definition
 input_layer = tf.keras.layers.Input(X_train[0].shape)
 
-conv1 = tf.keras.layers.Conv1D(filters=128, kernel_size=3, padding="same")(input_layer)
+conv1 = tf.keras.layers.Conv1D(filters=128, kernel_size=3, padding="same", 
+                               kernel_initializer = tf.keras.initializers.HeNormal, 
+                               kernel_regularizer = tf.keras.regularizers.L1L2(l1 = 1e-5, l2 = 1e-5))(input_layer)
 conv1 = tf.keras.layers.BatchNormalization()(conv1)
 conv1 = tf.keras.layers.ReLU()(conv1)
 
-conv2 = tf.keras.layers.Conv1D(filters=128, kernel_size=3, padding="same")(conv1)
+conv2 = tf.keras.layers.Conv1D(filters=128, kernel_size=3, padding="same",
+                               kernel_initializer = tf.keras.initializers.HeNormal, 
+                               kernel_regularizer = tf.keras.regularizers.L1L2(l1 = 1e-5, l2 = 1e-5))(conv1)
 conv2 = tf.keras.layers.BatchNormalization()(conv2)
 conv2 = tf.keras.layers.ReLU()(conv2)
 
-conv3 = tf.keras.layers.Conv1D(filters=128, kernel_size=3, padding="same")(conv2)
+conv3 = tf.keras.layers.Conv1D(filters=128, kernel_size=3, padding="same",
+                               kernel_initializer = tf.keras.initializers.HeNormal, 
+                               kernel_regularizer = tf.keras.regularizers.L1L2(l1 = 1e-5, l2 = 1e-5))(conv2)
 conv3 = tf.keras.layers.BatchNormalization()(conv3)
 conv3 = tf.keras.layers.ReLU()(conv3)
 
 gap = tf.keras.layers.GlobalAveragePooling1D()(conv3)
 
-output_layer = tf.keras.layers.Dense(1, activation="sigmoid")(gap)
+dense1 = tf.keras.layers.Dense(128, activation = 'relu')(gap)
+dense1 = tf.keras.layers.Dropout(0.5)(dense1)
+
+output_layer = tf.keras.layers.Dense(1, activation="sigmoid")(dense1)
 
 model = tf.keras.models.Model(inputs=input_layer, outputs=output_layer)
 model.summary()
@@ -369,7 +378,7 @@ model.summary()
 epochs = 500
 batch_size = 128
 
-callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=25)
+callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=25)
 
 
 model.compile(
@@ -383,6 +392,7 @@ history = model.fit(
     batch_size=batch_size,
     epochs=epochs,
     verbose=1,
+    validation_split = 0.1,
     callbacks=[callback]
 )
 
@@ -417,4 +427,6 @@ plt.show()
 y_pred_binarized = (y_pred >= 0.5)
 print(classification_report(y_test, y_pred_binarized, target_names=["neg", "pos"]))
 f1_score(y_test, y_pred_binarized)
+
+model.save('./Models/RT-QuicModel.h5')
 # %%

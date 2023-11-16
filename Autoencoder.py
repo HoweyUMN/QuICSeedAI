@@ -17,6 +17,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+import tensorflow as tf
 
 #%%
 ### R Function Imports
@@ -122,10 +124,19 @@ for key in dataset.keys():
                temp.append(val)
          data = np.array(temp)
       row.append(data)
+      y.append(dataset[key]['Label'])
    x.append(row)
-   y.append(dataset[key]['Label'])
+   # y.append(dataset[key]['Label'])
 x = np.array(x)
 y = tf.keras.utils.to_categorical(np.array(y))
+
+# Set x values to uniform 0
+for i,row in enumerate(x):
+   x[i] = row - np.min(row)
+# Normalize the dataset
+x = x / np.max(x)
+
+x = np.concatenate(x, axis=0)
 
 print(x.shape)
 print(y.shape)
@@ -137,10 +148,10 @@ y_neg = y[y[:,0] == 1]
 
 #%%
 ### Create training and testing sets
-x_train, x_test, y_train, y_test = train_test_split(x_pos, y_pos, test_size=0.2, shuffle=True)
+x_train, x_test, y_train, y_test = train_test_split(x_neg, y_neg, test_size=0.2, shuffle=True)
 
-x_test = np.concatenate((x_neg, x_test))
-y_test = np.concatenate((y_neg, y_test))
+x_test = np.concatenate((x_pos, x_test))
+y_test = np.concatenate((y_pos, y_test))
 
 # %%
 ### Define an Autoencoder
@@ -149,78 +160,47 @@ np.int = int
 np.float = float
 np.bool = bool
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Flatten, Conv1D, Dropout, GlobalAveragePooling1D, BatchNormalization, Input, Activation
+from tensorflow.keras.layers import Dense, Input
 from tensorflow.keras import Model
 
-input_layer = Input(shape = x.shape[1:])
+NDIM = x.shape[1]
 
-conv1 = Conv1D(filters=64, kernel_size=5, kernel_initializer=tf.keras.initializers.HeNormal(7))(input_layer)
-conv1 = BatchNormalization()(conv1)
-conv1 = Activation('relu')(conv1)
+# Inputs
+input_layer = Input(shape=NDIM)
 
-gap = GlobalAveragePooling1D()(conv1)
+# Encoding Layer 1
+encoder1 = Dense(NDIM / 2, activation = 'relu')(input_layer)
 
-flat = Flatten()(gap)
+# Encoding Layer 2
+encoder2 = Dense(NDIM / 4, activation = 'relu')(encoder1)
 
-encoder1 = Dense(8*x.shape[1], activation= 'relu')(flat)
+# Encoding Layer 3
+encoder3 = Dense(NDIM / 8, activation = 'relu')(encoder2)
 
-encoder2 = Dense(4*x.shape[1], activation='relu')(encoder1)
+# Decoding Layer 1
+decoder1 = Dense(NDIM / 4, activation = 'relu')(encoder3)
 
-encoder3 = Dense(2*x.shape[1], activation='relu')(encoder2)
+# Decoding Layer 2
+decoder2 = Dense(NDIM / 2, activation = 'relu')(decoder1)
 
-decoder1 = Dense(4*x.shape[1], activation='relu')(encoder3)
+# Output
+output = Dense(NDIM, activation='sigmoid')(decoder2)
 
-decoder2 = Dense(8*x.shape[1], activation = 'relu')(decoder1)
-
-output_layer = Dense(8*x.shape[1], activation='sigmoid')(decoder1)
-
-model = Model(inputs = input_layer, outputs = output_layer)
+# Model Definition
+model = Model(input_layer, output)
 model.summary()
 
 # %%
-### Train the model
-import keras.backend as K
-import tensorflow as tf
-
-epochs = 100
-batch_size = 128
-
-def recall_m(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-    recall = true_positives / (possible_positives + K.epsilon())
-    return recall
-
-def precision_m(y_true, y_pred):
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-    precision = true_positives / (predicted_positives + K.epsilon())
-    return precision
-
-def f1_m(y_true, y_pred):
-    precision = precision_m(y_true, y_pred)
-    recall = recall_m(y_true, y_pred)
-    return 2*((precision*recall)/(precision+recall+K.epsilon()))
-
-callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=10)
-
-model.compile(
-   optimizer=tf.keras.optimizers.Adam(learning_rate = 0.001),
-   loss = 'binary_crossentropy',
-   metrics = ['accuracy', f1_m]
-)
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-9), loss = 'mse')
 
 history = model.fit(
-   x_train,
-   x_train.reshape(len(x_train),8*len(x_train[1])),
-   batch_size = batch_size,
-   epochs = epochs,
-   verbose = 1,
-   validation_split = 0.1,
-   callbacks = [callback]
+   x=x_train,
+   y=x_train,
+   epochs = 1000,
+   batch_size = 64
 )
-
 # %%
-### Evaluating the Model
 preds = model.predict(x_test)
 
+print(preds[-1])
+# %%

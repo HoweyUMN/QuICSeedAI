@@ -1,6 +1,7 @@
 #%%
 ### Imports
 # Python Package Imports
+print('Initializing...')
 import os
 import socket
 if socket.gethostname() == 'Desktop-CS1TBMI':
@@ -14,6 +15,13 @@ from rpy2.robjects import pandas2ri
 from rpy2.ipython.ggplot import image_png
 from rpy2.robjects.packages import importr, data
 import numpy as np
+np.object = object
+np.int = int
+np.float = float
+np.bool = bool
+import tensorflow as tf
+from tensorflow.keras.layers import Dense, Flatten, Conv1D, Dropout, GlobalAveragePooling1D, BatchNormalization, Input, Activation
+from tensorflow.keras import Model
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
@@ -22,6 +30,7 @@ import tensorflow as tf
 
 #%%
 ### R Function Imports
+print('Importing R functions...')
 base = importr('base')
 utils = importr('utils')
 stringr = importr('stringr')
@@ -31,7 +40,7 @@ QuICAnalysis = importr('QuICAnalysis')
 
 #%%
 ### Data Import
-
+print('Loading R data...')
 # Get a list of folders to search for data
 folders = next(os.walk('./data'))[1]
 folders = ['./data/' + folder for folder in folders]

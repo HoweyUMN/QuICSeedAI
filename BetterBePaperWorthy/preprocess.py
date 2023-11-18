@@ -13,12 +13,7 @@ import rpy2.robjects as robjects
 from rpy2.robjects import pandas2ri
 from rpy2.ipython.ggplot import image_png
 from rpy2.robjects.packages import importr, data
-import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-import tensorflow as tf
 
 base = importr('base')
 utils = importr('utils')
@@ -40,9 +35,25 @@ class preprocess:
         self.dataset = []
         self.norm_analysis = []
         self.analysis = []
-        self.pandas_dataframe = pd.DataFrame()
 
-    def import_data(self, data_dir = './', folders = None):
+    def analyze_features_from_csvs(self, data_dir = './', folders = None):
+       """Takes in the directory data is stored in and the selected folder names 
+        (automatically gotten if unspecified), imports the data, and performs R analysis (can be
+        swapped in the future for other analysis methods).
+        Note all csv files must be in group of 3 - one for plate, one for replicate, and 
+        one for the raw data.\n
+        Parameters:\n
+        data_dir - path to directory where folders are stored\n
+        folders - directories in data_dir where data is stored\n
+        Returns:\n
+        norm_analysis - Analyzed features in pandas dataframe"""
+       self._import_data(data_dir, folders)
+       self._extract_engineered_features()
+       self.norm_analysis = self._r2pandas(self.norm_analysis)
+       self.analysis = self._r2pandas(self.analysis)
+       return self.norm_analysis
+
+    def _import_data(self, data_dir = './', folders = None):
         """Takes in the directory data is stored in and the selected folder names 
         (automatically gotten if unspecified) and imports the data for futhre analysis.
         Note all csv files must be in group of 3 - one for plate, one for replicate, and 
@@ -81,7 +92,7 @@ class preprocess:
         self.dataset = dataset
         return dataset
     
-    def extract_engineered_features(self, dataset = None):
+    def _extract_engineered_features(self, dataset = None):
         """Performs QuicAnalysis package analysis and decomposition on specified segment of
         the dataset. This extracts engineered features including Time to Threshold, Rate
         of Amyloid Formation, Max Slope, and Max Point Ratio. See original R package for 
@@ -115,14 +126,12 @@ class preprocess:
         self.analysis = my_analysis
         return [my_norm_analysis, my_analysis]
     
-    def r2pandas(self, dataframes = None):
+    def _r2pandas(self, dataframes = None):
         """Takes a list of R dataframes for multiple (or one if passed as a one element list) 
         and converts them to a Pandas dataframe with all the data concatenated together. This
         dataframe is stored as an attribute.\n
         Parameters:\n
-        dataframes - A list of dataframes to concatenate\n
-        Returns:\n
-        The concatenated Pandas dataframe"""
+        dataframes - A list of dataframes to concatenate\n"""
         
         my_df = pd.DataFrame()
         for sub_df in dataframes:
@@ -130,6 +139,8 @@ class preprocess:
             dataframe = robjects.conversion.get_conversion().rpy2py(sub_df)
           my_df = pd.concat((my_df, dataframe), axis=0)
         dataframe = my_df
-        # TODO
-
+        return dataframe
+    
+    def extract_raw_data_from_csvs(self, data_dir = './', folders = None, format = 'MLI'):
+       
         

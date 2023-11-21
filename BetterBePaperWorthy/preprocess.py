@@ -14,6 +14,7 @@ from rpy2.robjects import pandas2ri
 from rpy2.ipython.ggplot import image_png
 from rpy2.robjects.packages import importr, data
 import pandas as pd
+import numpy as np
 
 base = importr('base')
 utils = importr('utils')
@@ -35,6 +36,8 @@ class preprocess:
         self.dataset = []
         self.norm_analysis = []
         self.analysis = []
+
+        self.pandas_df = pd.DataFrame()
 
     def analyze_features_from_csvs(self, data_dir = './', folders = None):
        """Takes in the directory data is stored in and the selected folder names 
@@ -68,7 +71,7 @@ class preprocess:
         # If no folders are given, automatically search for all potential data folders
         if folders is None:
             folders = next(os.walk(data_dir))[1]
-            folders = [data_dir + folder for folder in folders]
+        folders = [data_dir + folder for folder in folders]
         
         # Search folders for appropriately named excel files and store together in a list of dictionaries
         dataset = []
@@ -139,8 +142,87 @@ class preprocess:
             dataframe = robjects.conversion.get_conversion().rpy2py(sub_df)
           my_df = pd.concat((my_df, dataframe), axis=0)
         dataframe = my_df
+        self.pandas_df = dataframe
         return dataframe
     
     def extract_raw_data_from_csvs(self, data_dir = './', folders = None, format = 'MLI'):
-       
+        if format == 'MLI':
+
+            # Import data and perform cleaning operations
+            self.data_dir = data_dir
+            dataset = self._import_data(data_dir=data_dir, folders=folders)
+            
+            dataframes = []
+            metadata_rds = []
+            for data_dict in dataset:
+                robjects.globalenv["AlternativeTime"] = QuICAnalysis.GetTime(data_dict['Raw'])
+
+                meta = QuICAnalysis.GetCleanMeta(data_dict['Raw'], data_dict['Plate'], data_dict['Replicate'])
+                clean_raw = QuICAnalysis.GetCleanRaw(meta, data_dict['Raw'])
+                dataframes.append(clean_raw)
+                metadata_rds.append(meta)
+
+            # Extract raw data from rds
+            datasets = []
+            for sub_df in dataframes:
+                with (robjects.default_converter + pandas2ri.converter).context():
+                    dataframe = robjects.conversion.get_conversion().rpy2py(sub_df)
+                datasets.append(dataframe.T)
+            
+            # Extract metadata form rds
+            metadata = []
+            for i,meta in enumerate(metadata_rds):
+                with (robjects.default_converter + pandas2ri.converter).context():
+                    mdf = robjects.conversion.get_conversion().rpy2py(meta)
+                mdf['content'] = str(i) + mdf['content']
+                mdf['content_replicate'] = str(i) + mdf['content_replicate']
+                metadata.append(mdf)
+            metadata = pd.concat(metadata, axis = 0)
+
+            # Ensure dataset members are same length (padding)
+            max_time = 0
+            for ds in datasets:
+               if len(ds[1]) > max_time:
+                  max_time = ds.shape[1]
+            
+            adjusted_datasets = []
+            for ds in datasets:
+                if len(ds[1]) < max_time:
+                  adjusted_datasets.append(np.pad(ds, ((0, 0), (0, max_time - ds.shape[1])), mode='edge'))
+                else:
+                   adjusted_datasets.append(ds)
+            numpy_dataset = np.concatenate(adjusted_datasets)
+            
+            ## Use metadata to sort the dataset
+            # Remove controls
+            clean_dataset = []
+            meta_temp = metadata
+            while(len(meta_temp) > 0):
+                content = meta_temp['content'].iloc[0]
+                if content == 'pos' or content == 'neg' or 'Blank' in content:
+                  meta_temp = meta_temp[meta_temp['content'] != content]
+                  continue
+
+                # Add all replicates to a single data container
+                indices = meta_temp.index[meta_temp['content'] == content].tolist()
+                indices = [int(x) - 1 for x in indices]
+                data_list = []
+                for index in indices:
+                   data_list.append(numpy_dataset[index])
+                indices = [str(int(x) + 1) for x in indices]
+                meta_temp = meta_temp[meta_temp['content'] != content]
+
+                # Put data container into overall list
+                data_obj = {}
+                data_obj['content'] = content
+                data_obj['replicates'] = data_list
+                clean_dataset.append(data_obj)
+
+            self.dataset = clean_dataset
+            return clean_dataset   
+
+        elif format == 'SL':
+           pass
+        else:
+           raise Exception('Format Specified Unimplemented - Select MLI or SL')
         

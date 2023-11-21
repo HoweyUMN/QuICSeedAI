@@ -8,14 +8,8 @@ if socket.gethostname() == 'Desktop-CS1TBMI':
   os.environ['R_HOME'] = "C:/PROGRA~1/R/R-43~1.1"
 else:
   os.environ['R_HOME'] = 'C:/Users/howey024/AppData/Local/Programs/R/R-4.3.2'
-import glob
 
 import preprocess
-import rpy2
-import rpy2.robjects as robjects
-from rpy2.robjects import pandas2ri
-from rpy2.ipython.ggplot import image_png
-from rpy2.robjects.packages import importr, data
 
 import numpy as np
 np.object = object
@@ -33,7 +27,12 @@ import tensorflow as tf
 
 #%%
 ### Get analyzed data
+import imp
+imp.reload(preprocess)
+
 DATA_DIR = '../data/'
-analyzed_dataset = preprocess.preprocess().analyze_features_from_csvs(data_dir = DATA_DIR)
+data_processor = preprocess.preprocess()
+analyzed_data = data_processor.extract_raw_data_from_csvs(data_dir = DATA_DIR)
 
 # %%
+### 

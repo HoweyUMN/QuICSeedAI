@@ -16,6 +16,9 @@ from rpy2.robjects.packages import importr, data
 import pandas as pd
 import numpy as np
 from sklearn.metrics import classification_report, f1_score
+import matplotlib.pyplot as plt
+from sklearn.decomposition import KernelPCA
+import multiprocessing
 
 base = importr('base')
 utils = importr('utils')
@@ -36,12 +39,13 @@ class ML_QuIC:
     self.analysis_dataset = None
     self.metadata = None
     self.labels = None
-    self.training_indices = None
-    self.testing_indices = None
+    self.training_indices = {}
+    self.testing_indices = {}
     self.models = {}
     self.predictions = {}
     self.scores = {}
     self.tags = {}
+    self.plots = {}
       
   def import_dataset(self, data_dir = './Data/', folders = None):
     """Takes in the directory data is stored in and the selected folder names 
@@ -92,22 +96,67 @@ class ML_QuIC:
 
     return [raw_data, metadata, analysis]
   
-  def separate_train_test(self, seed = 7, test_size = 0.1):
+  def get_num_timesteps_raw(self):
+    """Getter function for the number of features used in training"""
+    return self.raw_dataset.shape[1] - 1 # -1 because we ignore labels
+
+  def separate_train_test(self, seed = 7, test_size = 0.1, train_type = 0, model_names = None, tags = None):
     """Separates imported data into a training set and a testing set.\n
+    train_type: 0 - Mix of samples, 1 is positive samples only, 2 is negative samples only, 3 is all data is trained on. If only pos/neg is used, 
+    test size is how many of the training sample type to withold\n
     Returns: [training_indices, testing_indices]"""
     np.random.seed = seed
 
-    # Shuffle the dataset to ensure randomness
-    indices = np.random.permutation(len(self.raw_dataset))
+    models = []
+    if model_names is None:
+      models = self.models.keys()
+    else: models = model_names
+
+    # Override previous import if tags are specified  
+    if (not tags is None) and (model_names is None):
+      models = []
+      for tag in tags:
+        models += self.tags[tag]
+
+    if train_type == 1:
+      pos_indices = np.array(np.where(self.labels == 2)[0])
+      neg_indices = np.array(np.where(self.labels != 2)[0])
+
+      train_indices = pos_indices[:int(test_size * len(pos_indices))]
+      test_indices = np.concatenate((neg_indices, pos_indices[int(test_size * len(pos_indices)):]))
+      np.random.shuffle(test_indices)
+      np.random.shuffle(train_indices)
+
+    elif train_type == 2:
+      pos_indices = np.where(self.labels == 2)
+      neg_indices = np.where(self.labels != 2)
+
+      train_indices = neg_indices[:int(test_size * len(neg_indices))]
+      test_indices = np.concatenate((pos_indices, neg_indices[int(test_size * len(neg_indices)):]))
+      test_indices = np.random.shuffle(test_indices)
+      train_indices = np.random.shuffle(train_indices)
 
     # Separate Training and Testing
-    test_indices = indices[:int(test_size * len(self.raw_dataset))]
-    train_indices = indices[int(test_size * len(self.raw_dataset)):]
+    elif train_type == 0:
+      # Shuffle the dataset to ensure randomness
+      indices = np.random.permutation(len(self.raw_dataset))
 
-    self.training_indices = train_indices
-    self.testing_indices = test_indices
+      test_indices = indices[:int(test_size * len(self.raw_dataset))]
+      train_indices = indices[int(test_size * len(self.raw_dataset)):]
 
-    return [train_indices, test_indices]
+    elif train_type == 3:
+      train_indices = np.random.permutation(len(self.raw_dataset))
+      test_indices = np.random.permutation(len(self.raw_dataset))
+
+    else:
+      raise Exception('Invalid argument, train_type must be 0, 1, 2, or 3!')
+
+    # Ensure this is consitent for all models passed in
+    for model in models:
+      self.training_indices[model] = train_indices
+      self.testing_indices[model] = test_indices
+
+    return [self.training_indices, self.testing_indices]
   
   def add_model(self, model, model_name = '', tag = None):
     """Sets the model stored in this structure to the one specified."""
@@ -163,10 +212,12 @@ class ML_QuIC:
     if (not tags is None) and (model_names is None):
       models = []
       for tag in tags:
-        models.append(self.tags[tag])
+        models += self.tags[tag]
 
     for model in models:
-      self.models[model].fit(x = dataset, y = labels)
+      x_train = dataset[self.training_indices[model]]
+      y_train = labels[self.training_indices[model]]
+      self.models[model].fit(x = x_train, y = y_train)
   
   def get_model_predictions(self, testing_indices = None, model_names = []):
     """When a model is stored in the ML_QuIC object, get predictions from the model on test data in set\n
@@ -180,10 +231,6 @@ class ML_QuIC:
     if testing_indices is None:
       testing_indices = self.testing_indices
 
-    # Use entire dataset
-    if testing_indices is None:
-      testing_indices = np.arange(len(self.raw_dataset))
-
     models = []
     if model_names is None:
       models = self.models.keys()
@@ -191,11 +238,11 @@ class ML_QuIC:
 
     predictions = {}
     for model in models:
-      predictions[model] = self.models[model_names].predict(self.get_numpy_dataset('raw')[testing_indices])
+      predictions[model] = self.models[model].predict(self.get_numpy_dataset('raw')[testing_indices[model]])
 
     return predictions
 
-  def get_model_scores(self, testing_indices = None, verbose = True, model_names = None):
+  def get_model_scores(self, testing_indices = None, verbose = True, model_names = None, tags = None):
     """When a model is stored in the ML_QuIC object, get metrics from the model on test data in set\n
     Parameters:\n
     testing_indices: The indices of the testing dataset - default is whats in dataset, full datset if
@@ -223,6 +270,11 @@ class ML_QuIC:
       models = self.models.keys()
     else: models = model_names
 
+    if (not tags is None) and (model_names is None):
+      models = []
+      for tag in tags:
+        models += self.tags[tag]
+
     scores = {}
     for model in models:
       scores[model] = self.models[model].get_scores(data, true)
@@ -232,3 +284,52 @@ class ML_QuIC:
         print(scores)
 
     return scores
+
+  def get_model_plots(self, model_names = None, tags = None):
+    models = []
+    if model_names is None:
+      models = self.models.keys()
+    else: models = model_names
+
+    if (not tags is None) and (model_names is None):
+      models = []
+      for tag in tags:
+        models += self.tags[tag]
+
+    preds = self.get_model_predictions(model_names=models)
+
+    for model in models:
+      for key, tag_list in self.tags.items():
+        if model in tag_list:
+          plot_category = key.lower()
+          break
+      
+      if plot_category == 'Unsupervised'.lower():
+        y_pred = preds[model]
+        y_true = self.labels[self.testing_indices[model]]
+        color_map = ['b', 'k', 'g', 'r']
+
+        fig, ax = plt.subplots(2, 2)
+        fig.suptitle('Classification Results for ' + model)
+        if np.sum(np.where(y_pred == y_true, 1, 0)) < 0.5 * len(y_true):
+          y_pred = 1 - y_pred
+
+        ax[0, 0].set_title('Unsupervised Classification of Data')
+        for i,data in enumerate(self.get_numpy_dataset()[self.testing_indices[model]]):
+          ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_pred[i]])
+
+        ax[0, 1].set_title('Cluster Visualization with PCA')
+        pca_vals = KernelPCA(n_components=2, kernel='rbf').fit_transform(self.get_numpy_dataset()[self.testing_indices[model]])
+        for i, data in enumerate(pca_vals):
+          ax[0, 1].scatter(pca_vals[0], pca_vals[1], c = color_map[y_pred[i]])
+
+        ax[1, 0].set_title('Incorrectly Classified Data')
+        for i,data in enumerate(self.get_numpy_dataset()[self.testing_indices[model]]):
+          if y_pred[i] != y_true[i]:
+            ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[2 + y_pred[i]])
+
+        ax[1, 1].set_title('Incorrectly Classified Data Visualized with PCA')
+        for i, data in enumerate(pca_vals):
+          if y_pred[i] != y_true[i]:
+            ax[1, 1].scatter(pca_vals[0], pca_vals[1], c = color_map[2 + y_pred[i]])
+      plt.show()

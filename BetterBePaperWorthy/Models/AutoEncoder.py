@@ -60,8 +60,20 @@ class AutoEncoder:
             use_multiprocessing,
         )
 
-    def predict(self, data):
+    def predict(self, data, binary = True):
         data = self.scaler.transform(data)
+        if binary:
+            preds = self.model.predict(data)
+            mses = np.zeros(len(preds))
+            for i,pred in enumerate(preds):
+                errors = pred - data[i]
+                sq_err = np.zeros(len(errors))
+                for j,err in enumerate(errors):
+                    sq_err[j] = err**2
+                mses[i] = np.mean(sq_err)
+            return np.where(mses > np.mean(mses), 1, 0)
+        
+        score_preds = np.where(mses > np.mean(mses), 1, 0)
         return self.model.predict(data)
     
     def get_scores(self, data, true):

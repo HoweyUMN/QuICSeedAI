@@ -9,20 +9,15 @@ from tensorflow.keras import Model, regularizers
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report
 
-class AutoEncoder:
-    """A handy interface for ML-QuIC to interact with the Autoencoder format"""
+class MLP:
 
     def __init__(self, NDIM):
+        """Initializes a DNN and scaler which can be used in standardized training"""
         input_layer = Input(shape=NDIM)
-        ael = Dense(NDIM / 2, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(input_layer)
-        ael = Dense(NDIM / 4, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
-        ael = Dense(NDIM / 8, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
-        ael = Dense(NDIM / 16, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
-
-        ael = Dense(NDIM / 8, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
-        ael = Dense(NDIM / 4, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
-        ael = Dense(NDIM / 2, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
-        output = Dense(NDIM, activation='tanh')(ael)
+        dense = Dense(NDIM, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(input_layer)
+        dense = Dense(NDIM, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(dense)
+        dense = Dense(NDIM, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(dense)
+        output = Dense(1, activation='relu')(dense)
 
         self.model = Model(input_layer, output)
         self.scaler = StandardScaler()
@@ -32,7 +27,8 @@ class AutoEncoder:
             validation_data = None, shuffle = True, class_weight = None, sample_weight=None, initial_epoch=0, 
             steps_per_epoch = None, validation_steps = None, validation_batch_size = None, validation_freq = 1, 
             max_queue_size = 10, workers = 1, use_multiprocessing = False):
-        
+        """Acts as an interface for the underlying model's fit method, converting standardized data
+        into a format which the MLP can recognize"""
         self.scaler.fit(x)
         x = self.scaler.transform(x)
 
@@ -40,7 +36,7 @@ class AutoEncoder:
 
         self.model.fit(
             x,
-            x,
+            y,
             batch_size,
             epochs,
             verbose,
@@ -61,21 +57,13 @@ class AutoEncoder:
         )
 
     def predict(self, data):
+        """Acts as an interface for the model's prediction method, performs scaling and
+        gets data into a format appropriate for testing"""
         data = self.scaler.transform(data)
         return self.model.predict(data)
-    
+
     def get_scores(self, data, true):
-        preds = self.model.predict(data)
-        mses = np.zeros(len(preds))
-        for i,pred in enumerate(preds):
-            errors = pred - data[i]
-            sq_err = np.zeros(len(errors))
-            for j,err in enumerate(errors):
-                sq_err[j] = err**2
-            mses[i] = np.mean(sq_err)
-        
-        score_preds = np.where(mses > np.mean(mses), 1, 0)
-        return classification_report(true, score_preds, target_names=['neg', 'pos'])
-            
-
-
+        """Acts as an interface to get a model's predictions and obtain metrics from them"""
+        pred = self.predict(data)
+        pred = (pred >= 0.5)
+        return classification_report(true, pred, target_names=["neg", "pos"])

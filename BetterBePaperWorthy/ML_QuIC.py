@@ -38,7 +38,10 @@ class ML_QuIC:
     self.labels = None
     self.training_indices = None
     self.testing_indices = None
-    self.model = None
+    self.models = {}
+    self.predictions = {}
+    self.scores = {}
+    self.tags = {}
       
   def import_dataset(self, data_dir = './Data/', folders = None):
     """Takes in the directory data is stored in and the selected folder names 
@@ -106,9 +109,25 @@ class ML_QuIC:
 
     return [train_indices, test_indices]
   
-  def set_model(self, model):
+  def add_model(self, model, model_name = '', tag = None):
     """Sets the model stored in this structure to the one specified."""
-    self.model = model
+    self.models[model_name] = model
+
+    if not tag is None:
+      if tag in self.tags.keys():
+        self.tags[tag].append(model_name)
+      else:
+        self.tags[tag] = [model_name]
+
+  def drop_model(self, model, model_name = ''):
+    """Removes a model from this datastructure"""
+    del(self.models[model_name])
+    for key, models in self.tags.items():
+      if model_name in models:
+        self.tags[key].remove(model_name)
+        if len(self.tags[key]) == 0:
+          del(self.tags[key])
+        break
 
   def get_numpy_dataset(self, data_selection = 'raw'):
     """Converts a given portion of the dataset to a numpy array for training.\n
@@ -127,16 +146,29 @@ class ML_QuIC:
     
     raise Exception('Please select raw, labels, or analysis for option to get array of')
 
-  def train_model(self, dataset = None, labels = None):
+  def train_models(self, dataset = None, labels = None, model_names = None, tags=None):
+    """Calls the saved models fit method, getting the necessary data if applicable - model names overrides tags"""
     if dataset is None:
       dataset = self.get_numpy_dataset('raw')
     
     if labels is None:
       labels = self.get_numpy_dataset('labels')
 
-    self.model.fit(x = dataset, y = labels)
+    models = []
+    if model_names is None:
+      models = self.models.keys()
+    else: models = model_names
+
+    # Override previous import if tags are specified  
+    if (not tags is None) and (model_names is None):
+      models = []
+      for tag in tags:
+        models.append(self.tags[tag])
+
+    for model in models:
+      self.models[model].fit(x = dataset, y = labels)
   
-  def get_model_predictions(self, testing_indices = None):
+  def get_model_predictions(self, testing_indices = None, model_names = []):
     """When a model is stored in the ML_QuIC object, get predictions from the model on test data in set\n
     Parameters:\n
     testing_indices: The indices of the testing dataset - default is whats in dataset, full datset if
@@ -152,9 +184,18 @@ class ML_QuIC:
     if testing_indices is None:
       testing_indices = np.arange(len(self.raw_dataset))
 
-    return self.model.predict(self.get_numpy_dataset('raw')[testing_indices])
+    models = []
+    if model_names is None:
+      models = self.models.keys()
+    else: models = model_names
 
-  def get_model_scores(self, testing_indices = None, verbose = True):
+    predictions = {}
+    for model in models:
+      predictions[model] = self.models[model_names].predict(self.get_numpy_dataset('raw')[testing_indices])
+
+    return predictions
+
+  def get_model_scores(self, testing_indices = None, verbose = True, model_names = None):
     """When a model is stored in the ML_QuIC object, get metrics from the model on test data in set\n
     Parameters:\n
     testing_indices: The indices of the testing dataset - default is whats in dataset, full datset if
@@ -177,8 +218,17 @@ class ML_QuIC:
     data = self.get_numpy_dataset('raw')[testing_indices]
     true = (true >= 2)
 
-    scores = self.model.get_scores(data, true)
-    if verbose:
-      print(scores)
+    models = []
+    if model_names is None:
+      models = self.models.keys()
+    else: models = model_names
+
+    scores = {}
+    for model in models:
+      scores[model] = self.models[model].get_scores(data, true)
+
+      if verbose:
+        print(model + ':')
+        print(scores)
 
     return scores

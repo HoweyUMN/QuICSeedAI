@@ -29,7 +29,7 @@ from sklearn.model_selection import train_test_split
 ## K-Means
 km_struct = copy.copy(unsupervised)
 x = km_struct.get_numpy_dataset('raw')
-km_struct.set_model(KMeansModel.KMeansModel(n_clusters = 2))
+km_struct.add_model(KMeansModel.KMeansModel(n_clusters = 2))
 km_struct.train_model(x)
 km_struct.get_model_scores()
 
@@ -45,7 +45,7 @@ y = ae_struct.get_numpy_dataset('labels')
 x_train, x_test, y_train, y_test = train_test_split(x[y == 2], y[y == 2], test_size=0.2)
 x_test = np.concatenate((x_test, x[y != 2]))
 
-ae_struct.set_model(AutoEncoder.AutoEncoder(NDIM=x_test.shape[1]))
+ae_struct.add_model(AutoEncoder.AutoEncoder(NDIM=x_test.shape[1]))
 ae_struct.train_model(dataset=x_train, labels = y_train)
 ae_struct.get_model_scores()
 

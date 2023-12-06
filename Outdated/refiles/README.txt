@@ -1,5 +1,0 @@
-We have performed some preliminary analysis (see the powerpoint in Results) using a small dataset from Stuart Lichtenberg and the Jupyter notebook RT_QuIC_combined_Stuart_data.ipynb. The purpose of this notebook is to investigate training a model that takes in 8 RT-QuIC curves representing a replicate set of wells evaluating a given sample. The output of this model is a positive or negative determination of the sample. Stuart's data has been labeled with positive or negative.
-
-We have also discussed using data from Allen Herbst's dilution experiments to contribute to this model. In this case, we would use the computed 50% dilution threshold to split dilutions into positive and negative training samples. The input schema would be the same - replicate sets. 
-
-It would be beneficial to obtain at least one additional dataset, and explore opportunities for transfer learning and evaluation on different types of holdout sets.

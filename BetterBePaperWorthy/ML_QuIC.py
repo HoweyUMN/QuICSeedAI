@@ -15,7 +15,7 @@ from rpy2.ipython.ggplot import image_png
 from rpy2.robjects.packages import importr, data
 import pandas as pd
 import numpy as np
-from sklearn.metrics import classification_report, f1_score
+from sklearn.metrics import classification_report, f1_score, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 from sklearn.decomposition import KernelPCA
 import multiprocessing
@@ -256,15 +256,6 @@ class ML_QuIC:
     if testing_indices is None:
       testing_indices = self.testing_indices
 
-    # Use entire dataset
-    if testing_indices is None:
-      testing_indices = np.arange(len(self.raw_dataset))
-
-    # Get true/pred class
-    true = self.get_numpy_dataset('labels')[testing_indices]
-    data = self.get_numpy_dataset('raw')[testing_indices]
-    true = (true >= 2)
-
     models = []
     if model_names is None:
       models = self.models.keys()
@@ -277,11 +268,14 @@ class ML_QuIC:
 
     scores = {}
     for model in models:
+      true = self.get_numpy_dataset('labels')[testing_indices[model]]
+      data = self.get_numpy_dataset('raw')[testing_indices[model]]
+      true = (true >= 2)
       scores[model] = self.models[model].get_scores(data, true)
 
       if verbose:
         print(model + ':')
-        print(scores)
+        print(scores[model])
 
     return scores
 
@@ -304,32 +298,37 @@ class ML_QuIC:
           plot_category = key.lower()
           break
       
+      y_pred = preds[model]
+      y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
+      y_true = np.asarray(y_true == 2, dtype=int)
+
       if plot_category == 'Unsupervised'.lower():
         y_pred = preds[model]
-        y_true = self.labels[self.testing_indices[model]]
+        y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
+        y_true = np.asarray(y_true == 2, dtype=int)
         color_map = ['b', 'k', 'g', 'r']
 
         fig, ax = plt.subplots(2, 2)
+        fig.tight_layout(pad=3.0)
         fig.suptitle('Classification Results for ' + model)
         if np.sum(np.where(y_pred == y_true, 1, 0)) < 0.5 * len(y_true):
           y_pred = 1 - y_pred
 
-        ax[0, 0].set_title('Unsupervised Classification of Data')
-        for i,data in enumerate(self.get_numpy_dataset()[self.testing_indices[model]]):
+        ds = self.get_numpy_dataset()[self.testing_indices[model]]
+        
+        ax[0, 0].set_title('Classifications')
+        for i,data in enumerate(ds):
           ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_pred[i]])
 
-        ax[0, 1].set_title('Cluster Visualization with PCA')
-        pca_vals = KernelPCA(n_components=2, kernel='rbf').fit_transform(self.get_numpy_dataset()[self.testing_indices[model]])
-        for i, data in enumerate(pca_vals):
-          ax[0, 1].scatter(pca_vals[0], pca_vals[1], c = color_map[y_pred[i]])
+        ax[0, 1].set_title('Confusion Matrix')
+        
+        ax[1, 0].set_title('Incorrectly Classified')
+        ax[1, 1].set_title('Correctly Classified')
+        for i,data in enumerate(ds):
+          if y_pred[i] == y_true[i]:
+            ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
+          else:
+            ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
 
-        ax[1, 0].set_title('Incorrectly Classified Data')
-        for i,data in enumerate(self.get_numpy_dataset()[self.testing_indices[model]]):
-          if y_pred[i] != y_true[i]:
-            ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[2 + y_pred[i]])
-
-        ax[1, 1].set_title('Incorrectly Classified Data Visualized with PCA')
-        for i, data in enumerate(pca_vals):
-          if y_pred[i] != y_true[i]:
-            ax[1, 1].scatter(pca_vals[0], pca_vals[1], c = color_map[2 + y_pred[i]])
+      ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=y_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
       plt.show()

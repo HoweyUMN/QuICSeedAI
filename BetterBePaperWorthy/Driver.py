@@ -1,6 +1,6 @@
 #%%
 ### Import Packages
-import imp
+import importlib as imp
 import ML_QuIC
 imp.reload(ML_QuIC)
 import copy
@@ -12,41 +12,30 @@ DATA_DIR = './Data/'
 RANDOM_SEED = 7
 
 # Load data
-data_importer = ML_QuIC.ML_QuIC()
-data_importer.import_dataset(data_dir=DATA_DIR)
-
-# Create clones for different model prep
-supervised = copy.copy(data_importer)
-unsupervised = copy.copy(data_importer)
+ml_quic = ML_QuIC.ML_QuIC()
+ml_quic.import_dataset(data_dir=DATA_DIR);
 
 # %%
 ### Unsupervised Learning - Raw
-from Models import KMeansModel, AutoEncoder
-imp.reload(KMeansModel)
+from Models import KMeansModel
+
+# K-Means
+ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 2), model_name='KMeans', tag='Unsupervised')
+ml_quic.separate_train_test(model_names=['KMeans'], train_type=3)
+
+#%%
+# Autoencoder 
 from sklearn.model_selection import train_test_split
-
-#%%
-## K-Means
-km_struct = copy.copy(unsupervised)
-x = km_struct.get_numpy_dataset('raw')
-km_struct.add_model(KMeansModel.KMeansModel(n_clusters = 2))
-km_struct.train_model(x)
-km_struct.get_model_scores()
-
-#%%
-## Autoencoder
+from Models import AutoEncoder
 imp.reload(AutoEncoder)
 
-ae_struct = copy.copy(unsupervised)
-x = ae_struct.get_numpy_dataset('raw')
-y = ae_struct.get_numpy_dataset('labels')
+# Add model and prep data
+ml_quic.add_model(AutoEncoder.AutoEncoder(NDIM=ml_quic.get_num_timesteps_raw()), model_name='AE', tag='Unsupervised')
+ml_quic.separate_train_test(model_names=['AE'], train_type=1);
 
-# Get positive samples to train on 
-x_train, x_test, y_train, y_test = train_test_split(x[y == 2], y[y == 2], test_size=0.2)
-x_test = np.concatenate((x_test, x[y != 2]))
-
-ae_struct.add_model(AutoEncoder.AutoEncoder(NDIM=x_test.shape[1]))
-ae_struct.train_model(dataset=x_train, labels = y_train)
-ae_struct.get_model_scores()
-
+#%%
+ml_quic.train_models(tags=['Unsupervised'])
 # %%
+ml_quic.get_model_scores(tags=['Unsupervised']);
+#%%
+ml_quic.get_model_plots(tags=['Unsupervised'])

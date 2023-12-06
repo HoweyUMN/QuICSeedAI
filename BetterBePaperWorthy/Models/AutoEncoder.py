@@ -71,9 +71,8 @@ class AutoEncoder:
                 for j,err in enumerate(errors):
                     sq_err[j] = err**2
                 mses[i] = np.mean(sq_err)
-            return np.where(mses > np.mean(mses), 1, 0)
+            return np.where(mses < np.mean(mses) - 0.1 * np.mean(mses), 1, 0)
         
-        score_preds = np.where(mses > np.mean(mses), 1, 0)
         return self.model.predict(data)
     
     def get_scores(self, data, true):

@@ -8,11 +8,11 @@ if socket.gethostname() == 'Desktop-CS1TBMI':
 else:
   os.environ['R_HOME'] = 'C:/Users/howey024/AppData/Local/Programs/R/R-4.3.2'
 import glob
-import rpy2
-import rpy2.robjects as robjects
-from rpy2.robjects import pandas2ri
-from rpy2.ipython.ggplot import image_png
-from rpy2.robjects.packages import importr, data
+# import rpy2
+# import rpy2.robjects as robjects
+# from rpy2.robjects import pandas2ri
+# from rpy2.ipython.ggplot import image_png
+# from rpy2.robjects.packages import importr, data
 import pandas as pd
 import numpy as np
 from sklearn.metrics import classification_report, f1_score, ConfusionMatrixDisplay
@@ -20,12 +20,12 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import KernelPCA
 import multiprocessing
 
-base = importr('base')
-utils = importr('utils')
-stringr = importr('stringr')
-readxl = importr('readxl')
-tidyverse = importr('tidyverse')
-QuICAnalysis = importr('QuICAnalysis')
+# base = importr('base')
+# utils = importr('utils')
+# stringr = importr('stringr')
+# readxl = importr('readxl')
+# tidyverse = importr('tidyverse')
+# QuICAnalysis = importr('QuICAnalysis')
 
 class ML_QuIC:
   """This class contains a series of Python methods to processs and perform machine learning

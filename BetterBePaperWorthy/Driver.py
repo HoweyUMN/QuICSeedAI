@@ -6,9 +6,11 @@ imp.reload(ML_QuIC)
 import copy
 import numpy as np
 
+import tensorflow as tf
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 #%%
 ### Import Data and Create Objects to Analyze
-DATA_DIR = './Data/'
+DATA_DIR = '../Data/BigAnalysis'
 RANDOM_SEED = 7
 
 # Load data

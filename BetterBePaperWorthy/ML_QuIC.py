@@ -19,6 +19,8 @@ from sklearn.metrics import classification_report, f1_score, ConfusionMatrixDisp
 import matplotlib.pyplot as plt
 from sklearn.decomposition import KernelPCA
 import multiprocessing
+import seaborn as sns
+from sklearn.metrics import RocCurveDisplay, roc_auc_score
 
 # base = importr('base')
 # utils = importr('utils')
@@ -36,16 +38,37 @@ class ML_QuIC:
 
   def __init__(self):
     self.raw_dataset = None
+    """The raw fluorescence values as directly imported from the CSVs"""
+
     self.analysis_dataset = None
+    """The engineered feature dataset as directly imported from the CSVs"""
+
     self.metadata = None
+    """The metadata associated with the different samples"""
+
     self.labels = None
+    """The extracted labels from the dataset"""
+
     self.training_indices = {}
+    """The indices of data used for training for direct comparison of models on same data"""
+
     self.testing_indices = {}
+    """The indices of data used for testing for direct comparison of models on same data"""
+
     self.models = {}
+    """A dictionary of all the models"""
+
     self.predictions = {}
+    """A dictionary of predictions for a given model"""
+
     self.scores = {}
+    """The scores returned by each of the models stored as a dictionary"""
+
     self.tags = {}
+    """A dictionary of tags and their corresponding models for operating on groups rather than individual models"""
+
     self.plots = {}
+    """A return of the plots for later use and examination stored as a dictionary for each model"""
       
   def import_dataset(self, data_dir = './Data/', folders = None):
     """Takes in the directory data is stored in and the selected folder names 
@@ -89,6 +112,7 @@ class ML_QuIC:
       raise Exception('Dataset sizes are inconsistent - ensure all raw, meta, and analysis' +
                       ' data lines up!')
 
+    # Take imported data and store with the object attributes
     self.raw_dataset = raw_data
     self.metadata = metadata
     self.analysis_dataset = analysis
@@ -107,6 +131,7 @@ class ML_QuIC:
     Returns: [training_indices, testing_indices]"""
     np.random.seed = seed
 
+    # If model names are not specified, assume we run on all models
     models = []
     if model_names is None:
       models = self.models.keys()
@@ -118,6 +143,7 @@ class ML_QuIC:
       for tag in tags:
         models += self.tags[tag]
 
+    # Train on only positive samples and test on mixed dataset
     if train_type == 1:
       pos_indices = np.array(np.where(self.labels == 2)[0])
       neg_indices = np.array(np.where(self.labels != 2)[0])
@@ -127,6 +153,7 @@ class ML_QuIC:
       np.random.shuffle(test_indices)
       np.random.shuffle(train_indices)
 
+    # Train on only negative samples and test on mixed dataset
     elif train_type == 2:
       pos_indices = np.where(self.labels == 2)
       neg_indices = np.where(self.labels != 2)
@@ -136,7 +163,7 @@ class ML_QuIC:
       test_indices = np.random.shuffle(test_indices)
       train_indices = np.random.shuffle(train_indices)
 
-    # Separate Training and Testing
+    # Train and test on mixed dataset
     elif train_type == 0:
       # Shuffle the dataset to ensure randomness
       indices = np.random.permutation(len(self.raw_dataset))
@@ -144,6 +171,7 @@ class ML_QuIC:
       test_indices = indices[:int(test_size * len(self.raw_dataset))]
       train_indices = indices[int(test_size * len(self.raw_dataset)):]
 
+    # Train and test on entire dataset (only appropriate for unsupervised learning)
     elif train_type == 3:
       train_indices = np.random.permutation(len(self.raw_dataset))
       test_indices = np.random.permutation(len(self.raw_dataset))
@@ -159,7 +187,7 @@ class ML_QuIC:
     return [self.training_indices, self.testing_indices]
   
   def add_model(self, model, model_name = '', tag = None):
-    """Sets the model stored in this structure to the one specified."""
+    """Adds a specified model to the dictionary according to the specified name and tags"""
     self.models[model_name] = model
 
     if not tag is None:
@@ -168,7 +196,7 @@ class ML_QuIC:
       else:
         self.tags[tag] = [model_name]
 
-  def drop_model(self, model, model_name = ''):
+  def drop_model(self, model_name = ''):
     """Removes a model from this datastructure"""
     del(self.models[model_name])
     for key, models in self.tags.items():
@@ -184,6 +212,7 @@ class ML_QuIC:
     data_selection: Either 'raw', 'labels' or 'analysis'\n
     Returns:\n
     array: numpy array of given dataset"""
+
     if data_selection == 'raw':
       return np.array(self.raw_dataset.drop('content_replicate', axis=1))
     
@@ -197,29 +226,32 @@ class ML_QuIC:
 
   def train_models(self, dataset = None, labels = None, model_names = None, tags=None):
     """Calls the saved models fit method, getting the necessary data if applicable - model names overrides tags"""
+
+    # Make sure we have trainable data, either specified or generated here
     if dataset is None:
       dataset = self.get_numpy_dataset('raw')
-    
     if labels is None:
       labels = self.get_numpy_dataset('labels')
 
+    # If model is not specified, train on all models
     models = []
     if model_names is None:
       models = self.models.keys()
     else: models = model_names
 
-    # Override previous import if tags are specified  
+    # Override previous import if tags are specified and train for those tags
     if (not tags is None) and (model_names is None):
       models = []
       for tag in tags:
         models += self.tags[tag]
 
+    # Train up each model according to its own fit function
     for model in models:
       x_train = dataset[self.training_indices[model]]
       y_train = labels[self.training_indices[model]]
       self.models[model].fit(x = x_train, y = y_train)
   
-  def get_model_predictions(self, testing_indices = None, model_names = []):
+  def get_model_predictions(self, testing_indices = None, model_names = None, tags = None):
     """When a model is stored in the ML_QuIC object, get predictions from the model on test data in set\n
     Parameters:\n
     testing_indices: The indices of the testing dataset - default is whats in dataset, full datset if
@@ -231,11 +263,19 @@ class ML_QuIC:
     if testing_indices is None:
       testing_indices = self.testing_indices
 
+    # If model is unspecified, get predictions from all models
     models = []
     if model_names is None:
       models = self.models.keys()
     else: models = model_names
 
+    # If tag is specified, only train on given tag
+    if (not tags is None) and (model_names is None):
+      models = []
+      for tag in tags:
+        models += self.tags[tag]
+
+    # Get the predictions for each model
     predictions = {}
     for model in models:
       predictions[model] = self.models[model].predict(self.get_numpy_dataset('raw')[testing_indices[model]])
@@ -256,21 +296,23 @@ class ML_QuIC:
     if testing_indices is None:
       testing_indices = self.testing_indices
 
+    # If model is unspecified, get scores for all models
     models = []
     if model_names is None:
       models = self.models.keys()
     else: models = model_names
 
+    # If tag is specified, only train on given tag
     if (not tags is None) and (model_names is None):
       models = []
       for tag in tags:
         models += self.tags[tag]
 
+    # Get scores and store according to model names
     scores = {}
     for model in models:
       true = self.get_numpy_dataset('labels')[testing_indices[model]]
       data = self.get_numpy_dataset('raw')[testing_indices[model]]
-      true = (true >= 2)
       scores[model] = self.models[model].get_scores(data, true)
 
       if verbose:
@@ -279,56 +321,172 @@ class ML_QuIC:
 
     return scores
 
+  def evaluate_fp_performance(self, testing_indices = None, model_names = None, tags = None):
+    """Evaluates the performance of a model on known false positives in detail. Works for 2 class and 3 class models."""
+
+    # Default testing indices are the one in the model
+    if testing_indices is None: testing_indices = self.testing_indices
+
+    # Get the model predictions
+    predictions = self.get_model_predictions(testing_indices=testing_indices, model_names=model_names, tags=tags)
+
+    # Perform analysis on all models
+    for model in predictions.keys():
+      print('Results on False Positives for ' + model + ':')
+      x_test = self.get_numpy_dataset('raw')[testing_indices[model]]
+      y_test = self.get_numpy_dataset('labels')[testing_indices[model]]
+
+      # TODO - just ignore this bug for now
+      if model == 'AE': continue
+      
+      # Get the data where the raw was a false positive
+      fp_indices = testing_indices[model][np.where(y_test == 1)]
+      # x_fp = x_test[fp_indices]
+      # y_fp = y_test[fp_indices]
+      preds = predictions[model][fp_indices]
+
+      # If the max class prediction is 1, the model only assesses binary classification
+      if np.max(np.rint(predictions[model])) < 2:
+
+        # Count correct predictions (negative) and calculate accuracy
+        correct = len(preds[preds == 0])
+        print('Accuracy: {}'.format(correct / len(fp_indices)))
+
+        # Evaluate how fps factor into misclassifications
+        incorrect = len(preds) - correct
+        misclass_total = np.sum(np.where(y_test != predictions[model], 1, 0))
+        print('False Positives account for {:.2f}% of total misclassifications.'.format(100 * incorrect / misclass_total))
+
+      # The model attempts to classify false positives as their own class
+      else:
+        # Count correct predictions and calculate accuracy
+        correct = len(preds[preds == 1])
+        correct_as_neg = len(preds[preds == 0])
+        print('Accuracy: {}'.format((correct + correct_as_neg) / len(fp_indices)))
+        print('False Positives Correctly Identified as Negative: {}'.format(correct_as_neg / correct)) # This isn't really a knock on the model, just interesting
+
+        # Evaluate how fps factor into misclassifications
+        incorrect = len(preds) - (correct + correct_as_neg)
+        misclass_total = np.sum(np.where(y_test != predictions[model], 1, 0))
+        print('False Positives account for {:.2f}% of total misclassifications.'.format(100 * incorrect / misclass_total))
+
   def get_model_plots(self, model_names = None, tags = None):
+    """Get plots for models according to their kinds and tags"""
+
+    # If unspecified, get plots for all models
     models = []
     if model_names is None:
       models = self.models.keys()
     else: models = model_names
 
+    # Only get plots for specified model groups by tag
     if (not tags is None) and (model_names is None):
       models = []
       for tag in tags:
         models += self.tags[tag]
 
+    # Predictions for all models in list
     preds = self.get_model_predictions(model_names=models)
 
+    # Universal color map for plots
+    color_map = ['b', 'k', 'g', 'r'] 
+
+    # Define plot categories by the type of model tag input
     for model in models:
       for key, tag_list in self.tags.items():
         if model in tag_list:
           plot_category = key.lower()
           break
       
+      # Select predictions and true labels for this model
       y_pred = preds[model]
       y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
       y_true = np.asarray(y_true == 2, dtype=int)
-
+      
+      # Unsupervised block handled differently
       if plot_category == 'Unsupervised'.lower():
-        y_pred = preds[model]
-        y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
-        y_true = np.asarray(y_true == 2, dtype=int)
-        color_map = ['b', 'k', 'g', 'r']
+        fig, ax = self._unsupervised_plots(y_true, y_pred, model, color_map)
 
-        fig, ax = plt.subplots(2, 2)
-        fig.tight_layout(pad=3.0)
-        fig.suptitle('Classification Results for ' + model)
-        if np.sum(np.where(y_pred == y_true, 1, 0)) < 0.5 * len(y_true):
-          y_pred = 1 - y_pred
+      # Supervised block handled differently
+      elif plot_category == 'Supervised'.lower():
+        fig, ax = self._supervised_plots(y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r'])
 
-        ds = self.get_numpy_dataset()[self.testing_indices[model]]
-        
-        ax[0, 0].set_title('Classifications')
-        for i,data in enumerate(ds):
-          ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_pred[i]])
-
-        ax[0, 1].set_title('Confusion Matrix')
-        
-        ax[1, 0].set_title('Incorrectly Classified')
-        ax[1, 1].set_title('Correctly Classified')
-        for i,data in enumerate(ds):
-          if y_pred[i] == y_true[i]:
-            ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
-          else:
-            ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
-
-      ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=y_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
+      # Show plots that were generated for this model
       plt.show()
+
+  def _supervised_plots(self, y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r']):
+    """Plot model outcomes for generic supervised models"""
+    # Set up figure for plotting
+    fig, ax = plt.subplots(2, 2)
+    fig.tight_layout(pad=3.0)
+    fig.suptitle('Classification Results for ' + model)
+
+    # Got positive and negative predictions for violin plot
+    preds_neg = []
+    preds_pos = [] 
+    for i in range(len(y_true)):
+      y_predicted = y_pred[i]
+      y_real = y_true[i]
+      if y_real == 1:
+          preds_pos.append(y_predicted)
+      else:
+          preds_neg.append(y_predicted)
+
+    # Plot confusion matrix
+    ax[0, 0].set_title('Binary Confusion Matrix')
+    ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=(y_pred >= 0.5), ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'])
+
+    # Violin plot on the classificatoin distributions
+    ax[0, 1].set_title('Classification Distribution')
+    sns.violinplot(data=[preds_neg, preds_pos], orient='h', inner='stick', cut=0, ax=ax[0, 1])
+
+    # Plot an ROC curve for supervised learning methods
+    ax[1, 0].set_title('ROC Curve, AUC: {0:.2f}'.format(roc_auc_score(y_true, y_pred)))
+    RocCurveDisplay.from_predictions(y_true, y_pred, ax=ax[1, 0])
+
+
+    # Obtain the testing data for reference
+    ds = self.get_numpy_dataset()[self.testing_indices[model]]
+
+    # Plot Incorrectly Classed Data
+    ax[1, 1].set_title('Incorrectly Classified')
+    for i,data in enumerate(ds):
+      if y_pred[i] != y_true[i]:
+        ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
+
+    return fig, ax
+
+  def _unsupervised_plots(self, y_true, y_pred, model, color_map = ['b', 'k', 'g', 'r']):
+    """Generate plots for a generic unsupervised model. Takes predictions and the model name"""
+
+    # Set up figure for plotting
+    fig, ax = plt.subplots(2, 2)
+    fig.tight_layout(pad=3.0)
+    fig.suptitle('Classification Results for ' + model)
+
+    # For unsupervised, sometimes labels are swapped. This corrects for this fact
+    if np.sum(np.where(y_pred == y_true, 1, 0)) < 0.5 * len(y_true):
+      y_pred = 1 - y_pred
+
+    # Obtain the testing data for reference
+    ds = self.get_numpy_dataset()[self.testing_indices[model]]
+    
+    # Generate plot of data colored by class
+    ax[0, 0].set_title('Classifications')
+    for i,data in enumerate(ds):
+      ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_pred[i]])
+
+    # Confusion Matrix plot
+    ax[0, 1].set_title('Confusion Matrix')
+    ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=y_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
+    
+    # Plot dataset according to correct or incorrect classification
+    ax[1, 0].set_title('Incorrectly Classified')
+    ax[1, 1].set_title('Correctly Classified')
+    for i,data in enumerate(ds):
+      if y_pred[i] == y_true[i]:
+        ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
+      else:
+        ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
+
+    return fig, ax

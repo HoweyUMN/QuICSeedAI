@@ -28,7 +28,7 @@ class AutoEncoder:
         self.scaler = StandardScaler()
 
     def fit(self, learning_rate=1e-4, loss = 'mse',
-            x = None, y = None, batch_size = 128, epochs = 500, verbose = 0, callbacks = None, validation_split = 0.1,
+            x = None, y = None, batch_size = 128, epochs = 1000, verbose = 0, callbacks = None, validation_split = 0.1,
             validation_data = None, shuffle = True, class_weight = None, sample_weight=None, initial_epoch=0, 
             steps_per_epoch = None, validation_steps = None, validation_batch_size = None, validation_freq = 1, 
             max_queue_size = 10, workers = 1, use_multiprocessing = False):
@@ -38,27 +38,28 @@ class AutoEncoder:
 
         self.model.compile(optimizer = tf.keras.optimizers.Adam(learning_rate), loss = loss)
 
-        self.model.fit(
-            x,
-            x,
-            batch_size,
-            epochs,
-            verbose,
-            callbacks,
-            validation_split,
-            validation_data,
-            shuffle,
-            class_weight,
-            sample_weight,
-            initial_epoch,
-            steps_per_epoch,
-            validation_steps,
-            validation_batch_size,
-            validation_freq,
-            max_queue_size,
-            workers,
-            use_multiprocessing,
-        )
+        with(tf.device('/CPU:0')):
+            self.model.fit(
+                x,
+                x,
+                batch_size,
+                epochs,
+                verbose,
+                callbacks,
+                validation_split,
+                validation_data,
+                shuffle,
+                class_weight,
+                sample_weight,
+                initial_epoch,
+                steps_per_epoch,
+                validation_steps,
+                validation_batch_size,
+                validation_freq,
+                max_queue_size,
+                workers,
+                use_multiprocessing,
+            )
 
     def predict(self, data, binary = True):
         data = self.scaler.transform(data)
@@ -85,6 +86,7 @@ class AutoEncoder:
                 sq_err[j] = err**2
             mses[i] = np.mean(sq_err)
         
+        true = np.where(true >= 2, 1, 0)
         score_preds = np.where(mses > np.mean(mses), 1, 0)
         return classification_report(true, score_preds, target_names=['neg', 'pos'])
             

@@ -1,5 +1,6 @@
 from sklearn.cluster import KMeans
 from sklearn.metrics import classification_report
+import numpy as np
 
 class KMeansModel:
     """A simple interface between a KMeans model and the generic ML-QuIC structure. All the methods are unaltered, just a mask to keep things consistent."""
@@ -15,4 +16,5 @@ class KMeansModel:
     
     def get_scores(self, data, true):
         pred = self.predict(data)
+        true = np.where(true >= 2, 1, 0)
         return classification_report(true, pred, target_names=["neg", "pos"])

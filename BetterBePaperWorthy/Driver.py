@@ -1,13 +1,12 @@
 #%%
 ### Import Packages
-import importlib as imp
+import imp
 import ML_QuIC
 imp.reload(ML_QuIC)
 import copy
 import numpy as np
-
 import tensorflow as tf
-print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+
 #%%
 ### Import Data and Create Objects to Analyze
 DATA_DIR = '../Data/BigAnalysis'
@@ -17,7 +16,7 @@ RANDOM_SEED = 7
 ml_quic = ML_QuIC.ML_QuIC()
 ml_quic.import_dataset(data_dir=DATA_DIR);
 
-# %%
+#%%
 ### Unsupervised Learning - Raw
 from Models import KMeansModel
 
@@ -26,7 +25,7 @@ ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 2), model_name='KMeans', 
 ml_quic.separate_train_test(model_names=['KMeans'], train_type=3)
 
 #%%
-# Autoencoder 
+### Autoencoder 
 from sklearn.model_selection import train_test_split
 from Models import AutoEncoder
 imp.reload(AutoEncoder)
@@ -36,8 +35,38 @@ ml_quic.add_model(AutoEncoder.AutoEncoder(NDIM=ml_quic.get_num_timesteps_raw()),
 ml_quic.separate_train_test(model_names=['AE'], train_type=1);
 
 #%%
+### Train Unsupervised Models
 ml_quic.train_models(tags=['Unsupervised'])
-# %%
-ml_quic.get_model_scores(tags=['Unsupervised']);
+
 #%%
+### Get Unsupervised Scores and Plots
+ml_quic.get_model_scores(tags=['Unsupervised']);
+ml_quic.evaluate_fp_performance(tags=['Unsupervised'])
 ml_quic.get_model_plots(tags=['Unsupervised'])
+
+#%%
+### MLP
+from Models import MLP
+imp.reload(MLP)
+
+# Add MLP to list of supervised models
+ml_quic.add_model(MLP.MLP(NDIM = ml_quic.get_num_timesteps_raw()), 'MLP', tag='Supervised')
+
+#%%
+### SVM
+from Models import SVM
+imp.reload(SVM)
+
+# Add SVM to list of supervised models
+ml_quic.add_model(SVM.SVM(), 'SVM', tag = 'Supervised')
+
+#%%
+### Train Supervised Models
+ml_quic.separate_train_test(tags=['Supervised'], train_type=0)
+ml_quic.train_models(tags = ['Supervised'])
+
+#%%
+### Get Supervised Scores and Plots
+ml_quic.get_model_scores(tags = ['Supervised'])
+ml_quic.evaluate_fp_performance(tags=['Supervised'])
+ml_quic.get_model_plots(tags=['Supervised'])

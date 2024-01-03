@@ -63,6 +63,8 @@ class AutoEncoder:
 
     def predict(self, data, binary = True):
         data = self.scaler.transform(data)
+        
+        # Binary output determined from MSEs
         if binary:
             preds = self.model.predict(data)
             mses = np.zeros(len(preds))
@@ -74,6 +76,7 @@ class AutoEncoder:
                 mses[i] = np.mean(sq_err)
             return np.where(mses < np.mean(mses) - 0.1 * np.mean(mses), 1, 0)
         
+        # Raw output is a reconstruction of the data
         return self.model.predict(data)
     
     def get_scores(self, data, true):

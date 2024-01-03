@@ -188,6 +188,7 @@ class ML_QuIC:
   
   def add_model(self, model, model_name = '', tag = None):
     """Adds a specified model to the dictionary according to the specified name and tags"""
+
     self.models[model_name] = model
 
     if not tag is None:
@@ -251,7 +252,7 @@ class ML_QuIC:
       y_train = labels[self.training_indices[model]]
       self.models[model].fit(x = x_train, y = y_train)
   
-  def get_model_predictions(self, testing_indices = None, model_names = None, tags = None):
+  def get_model_predictions(self, testing_indices = None, model_names = None):
     """When a model is stored in the ML_QuIC object, get predictions from the model on test data in set\n
     Parameters:\n
     testing_indices: The indices of the testing dataset - default is whats in dataset, full datset if
@@ -268,12 +269,6 @@ class ML_QuIC:
     if model_names is None:
       models = self.models.keys()
     else: models = model_names
-
-    # If tag is specified, only train on given tag
-    if (not tags is None) and (model_names is None):
-      models = []
-      for tag in tags:
-        models += self.tags[tag]
 
     # Get the predictions for each model
     predictions = {}
@@ -321,55 +316,47 @@ class ML_QuIC:
 
     return scores
 
-  def evaluate_fp_performance(self, testing_indices = None, model_names = None, tags = None):
+  def evaluate_fp_performance(self, test_indices_dict = None, model_names = None, tags = None):
     """Evaluates the performance of a model on known false positives in detail. Works for 2 class and 3 class models."""
 
-    # Default testing indices are the one in the model
-    if testing_indices is None: testing_indices = self.testing_indices
-
-    # Get the model predictions
-    predictions = self.get_model_predictions(testing_indices=testing_indices, model_names=model_names, tags=tags)
-
+    # If tag is specified, only train on given tag
+    if (not tags is None) and (model_names is None):
+      models = []
+      for tag in tags:
+        models += self.tags[tag]
+ 
     # Perform analysis on all models
-    for model in predictions.keys():
-      print('Results on False Positives for ' + model + ':')
-      x_test = self.get_numpy_dataset('raw')[testing_indices[model]]
-      y_test = self.get_numpy_dataset('labels')[testing_indices[model]]
+    for model in models:
+      print('Results on False Positives for {}:'.format(model))
 
-      # TODO - just ignore this bug for now
-      if model == 'AE': continue
-      
-      # Get the data where the raw was a false positive
-      fp_indices = testing_indices[model][np.where(y_test == 1)]
-      # x_fp = x_test[fp_indices]
-      # y_fp = y_test[fp_indices]
-      preds = predictions[model][fp_indices]
-
-      # If the max class prediction is 1, the model only assesses binary classification
-      if np.max(np.rint(predictions[model])) < 2:
-
-        # Count correct predictions (negative) and calculate accuracy
-        correct = len(preds[preds == 0])
-        print('Accuracy: {}'.format(correct / len(fp_indices)))
-
-        # Evaluate how fps factor into misclassifications
-        incorrect = len(preds) - correct
-        misclass_total = np.sum(np.where(y_test != predictions[model], 1, 0))
-        print('False Positives account for {:.2f}% of total misclassifications.'.format(100 * incorrect / misclass_total))
-
-      # The model attempts to classify false positives as their own class
+      # Get the test set to examine
+      if test_indices_dict == None:
+        test_indices = self.testing_indices[model]
       else:
-        # Count correct predictions and calculate accuracy
-        correct = len(preds[preds == 1])
-        correct_as_neg = len(preds[preds == 0])
-        print('Accuracy: {}'.format((correct + correct_as_neg) / len(fp_indices)))
-        print('False Positives Correctly Identified as Negative: {}'.format(correct_as_neg / correct)) # This isn't really a knock on the model, just interesting
+        test_indices = test_indices_dict[model]
 
-        # Evaluate how fps factor into misclassifications
-        incorrect = len(preds) - (correct + correct_as_neg)
-        misclass_total = np.sum(np.where(y_test != predictions[model], 1, 0))
-        print('False Positives account for {:.2f}% of total misclassifications.'.format(100 * incorrect / misclass_total))
+      # Get the test data for analysis
+      x_test = self.get_numpy_dataset('raw')[test_indices]
+      y_test = self.get_numpy_dataset('labels')[test_indices]
 
+      # Get model predictions
+      preds = self.models[model].predict(x_test, binary=True)
+      preds_fp = preds[y_test == 1]
+
+      # Case where classifier has a binary negative or positive output
+      if np.max(preds) <= 1:
+        y_test_binary = np.array(y_test == 2)
+        
+        # Get basic metrics on FP data
+        correct_preds_fp = len(preds_fp[preds_fp <= 0.5])
+        print('Accuracy on False Positives: {}'.format(correct_preds_fp / len(preds_fp)))
+
+        # Determine FP contribution to misclass rate
+        incorrect_preds = len(y_test_binary[preds != y_test_binary])
+        incorrect_preds_fp = len(preds_fp) - correct_preds_fp
+        print('False Positives Account for {:.2f}% of total misclassifications.'.format(100 * (incorrect_preds_fp / incorrect_preds)))
+
+     
   def get_model_plots(self, model_names = None, tags = None):
     """Get plots for models according to their kinds and tags"""
 

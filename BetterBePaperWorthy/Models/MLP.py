@@ -59,23 +59,25 @@ class MLP:
             use_multiprocessing,
         )
 
-    def predict(self, data):
+    def predict(self, data, binary = False):
         """Acts as an interface for the model's prediction method, performs scaling and
         gets data into a format appropriate for testing"""
+
+        # Get the predictions
         data = self.scaler.transform(data)
         preds = self.model.predict(data)
+
+        # Returns binary + or - only instead of raw score
+        if binary:
+            preds = np.where(preds >= 0.5, 1, 0)
 
         # print(preds)
         return preds
 
     def get_scores(self, data, true):
         """Acts as an interface to get a model's predictions and obtain metrics from them"""
-        pred = self.predict(data)
-        pred = np.where(pred >= 0.5, 1, 0)
-        true = np.where(true >= 0.5, 1, 0)
+        pred = self.predict(data, binary=True)
+        true = np.where(true > 1, 1, 0)
 
-        try:
-            class_report = classification_report(true, pred, target_names=["neg", "pos"])
-        except:
-            class_report = 'NULL'
+        class_report = classification_report(true, pred, target_names=["neg", "pos"])
         return class_report

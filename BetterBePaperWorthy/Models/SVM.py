@@ -13,13 +13,15 @@ class SVM:
     def fit(self, x = None, y = None):
         self.scaler.fit(x)
         x = self.scaler.transform(x)
+        y = np.array(y == 2)
         self.model.fit(x, y)
     
-    def predict(self, data):
+    def predict(self, data, binary = True):
+        """Binary is unimplemented because SVM is a true binary classifier with no ambiguity"""
         data = self.scaler.transform(data)
         return self.model.predict(data)
     
     def get_scores(self, data, true):
         pred = self.predict(data)
-        true = np.where(true >= 2, 1, 0)
+        true = np.where(true == 2, 1, 0)
         return classification_report(true, pred, target_names=["neg", "pos"])

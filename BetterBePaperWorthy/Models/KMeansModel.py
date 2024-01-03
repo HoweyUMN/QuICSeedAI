@@ -11,10 +11,11 @@ class KMeansModel:
     def fit(self, x = None, y = None):
         self.model.fit(x)
     
-    def predict(self, data):
+    def predict(self, data, binary = True):
+        """Binary is unimplemented because KMeans returns true binary output"""
         return self.model.predict(data)
     
     def get_scores(self, data, true):
-        pred = self.predict(data)
+        pred = self.predict(data, binary=True)
         true = np.where(true >= 2, 1, 0)
         return classification_report(true, pred, target_names=["neg", "pos"])

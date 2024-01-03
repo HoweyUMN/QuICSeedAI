@@ -69,7 +69,7 @@ class MLP:
 
         # Returns binary + or - only instead of raw score
         if binary:
-            preds = np.where(preds >= 0.5, 1, 0)
+            preds = np.squeeze(np.where(preds >= 0.5, 1, 0))
 
         # print(preds)
         return preds

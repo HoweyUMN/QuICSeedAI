@@ -4,8 +4,8 @@ np.int = int
 np.float = float
 np.bool = bool
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Input
-from tensorflow.keras import Model, regularizers
+from keras.layers import Dense, Input
+from keras import Model, regularizers
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report
 

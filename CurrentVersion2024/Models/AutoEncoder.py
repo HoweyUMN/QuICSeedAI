@@ -4,8 +4,8 @@ np.int = int
 np.float = float
 np.bool = bool
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Input
-from tensorflow.keras import Model, regularizers
+from keras.layers import Dense, Input
+from keras import Model, regularizers
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report
 
@@ -17,9 +17,7 @@ class AutoEncoder:
         ael = Dense(NDIM / 2, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(input_layer)
         ael = Dense(NDIM / 4, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
         ael = Dense(NDIM / 8, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
-        ael = Dense(NDIM / 16, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
 
-        ael = Dense(NDIM / 8, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
         ael = Dense(NDIM / 4, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
         ael = Dense(NDIM / 2, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(ael)
         output = Dense(NDIM, activation='tanh')(ael)
@@ -31,7 +29,7 @@ class AutoEncoder:
             x = None, y = None, batch_size = 128, epochs = 1000, verbose = 0, callbacks = None, validation_split = 0.1,
             validation_data = None, shuffle = True, class_weight = None, sample_weight=None, initial_epoch=0, 
             steps_per_epoch = None, validation_steps = None, validation_batch_size = None, validation_freq = 1, 
-            max_queue_size = 10, workers = 1, use_multiprocessing = False):
+            max_queue_size = 10, workers = 1, use_multiprocessing = True):
         
         self.scaler.fit(x)
         x = self.scaler.transform(x)

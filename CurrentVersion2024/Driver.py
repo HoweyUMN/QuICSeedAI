@@ -1,8 +1,8 @@
 #%%
 ### Import Packages
-import imp
-import ML_QuIC
-imp.reload(ML_QuIC)
+import importlib as imp
+import ML_QuIC_Raw as ML_QuIC_Raw
+imp.reload(ML_QuIC_Raw)
 import copy
 import numpy as np
 import tensorflow as tf
@@ -13,7 +13,7 @@ DATA_DIR = '../Data/BigAnalysis'
 RANDOM_SEED = 7
 
 # Load data
-ml_quic = ML_QuIC.ML_QuIC()
+ml_quic = ML_QuIC_Raw.ML_QuIC()
 ml_quic.import_dataset(data_dir=DATA_DIR);
 
 #%%
@@ -61,6 +61,14 @@ imp.reload(SVM)
 ml_quic.add_model(SVM.SVM(), 'SVM', tag = 'Supervised')
 
 #%%
+### Hybrid AE and MLP
+from Models import Hybrid
+imp.reload(Hybrid)
+
+# Add Hybrid model to list of supervised models
+ml_quic.add_model(Hybrid.Hybrid(NDIM = ml_quic.get_num_timesteps_raw()), 'Hybrid', tag='Supervised')
+
+#%%
 ### Train Supervised Models
 ml_quic.separate_train_test(tags=['Supervised'], train_type=0)
 ml_quic.train_models(tags = ['Supervised'])
@@ -70,3 +78,4 @@ ml_quic.train_models(tags = ['Supervised'])
 ml_quic.get_model_scores(tags = ['Supervised'])
 ml_quic.evaluate_fp_performance(tags=['Supervised'])
 ml_quic.get_model_plots(tags=['Supervised'])
+# %%

@@ -58,6 +58,9 @@ class ML_QuIC:
     self.models = {}
     """A dictionary of all the models"""
 
+    self.model_dtype = {}
+    """Model datatypes for training."""
+
     self.predictions = {}
     """A dictionary of predictions for a given model"""
 
@@ -186,10 +189,14 @@ class ML_QuIC:
 
     return [self.training_indices, self.testing_indices]
   
-  def add_model(self, model, model_name = '', tag = None):
+  def add_model(self, model, data_type, model_name = '', tag = None):
     """Adds a specified model to the dictionary according to the specified name and tags"""
 
+    if data_type != 'raw' and data_type != 'analysis':
+      raise Exception('Datatype must be raw or analysis!')
+
     self.models[model_name] = model
+    self.model_dtype[model_name] = data_type
 
     if not tag is None:
       if tag in self.tags.keys():
@@ -225,12 +232,14 @@ class ML_QuIC:
     
     raise Exception('Please select raw, labels, or analysis for option to get array of')
 
-  def train_models(self, dataset = None, labels = None, model_names = None, tags=None):
+  def train_models(self, dataset_raw = None, labels = None, model_names = None, tags=None):
     """Calls the saved models fit method, getting the necessary data if applicable - model names overrides tags"""
 
+
     # Make sure we have trainable data, either specified or generated here
-    if dataset is None:
-      dataset = self.get_numpy_dataset('raw')
+    if dataset_raw is None:
+      dataset_raw = self.get_numpy_dataset('raw')
+      dataset_analysis = self.get_numpy_dataset('analysis')
     if labels is None:
       labels = self.get_numpy_dataset('labels')
 
@@ -248,7 +257,10 @@ class ML_QuIC:
 
     # Train up each model according to its own fit function
     for model in models:
-      x_train = dataset[self.training_indices[model]]
+      if self.model_dtype[model] == 'raw':
+        x_train = dataset_raw[self.training_indices[model]]
+      else:
+        x_train = dataset_analysis[self.training_indices[model]]
       y_train = labels[self.training_indices[model]]
       self.models[model].fit(x = x_train, y = y_train)
   
@@ -273,7 +285,11 @@ class ML_QuIC:
     # Get the predictions for each model
     predictions = {}
     for model in models:
-      predictions[model] = self.models[model].predict(self.get_numpy_dataset('raw')[testing_indices[model]])
+      if self.model_dtype[model] == 'raw':
+        x_test = self.get_numpy_dataset('raw')[testing_indices[model]]
+      else:
+        x_test = self.get_numpy_dataset('analysis')[testing_indices[model]]
+      predictions[model] = self.models[model].predict(x_test)
 
     return predictions
 
@@ -307,8 +323,11 @@ class ML_QuIC:
     scores = {}
     for model in models:
       true = self.get_numpy_dataset('labels')[testing_indices[model]]
-      data = self.get_numpy_dataset('raw')[testing_indices[model]]
-      scores[model] = self.models[model].get_scores(data, true)
+      if self.model_dtype[model] == 'raw':
+        x_test = self.get_numpy_dataset('raw')[testing_indices[model]]
+      else:
+        x_test = self.get_numpy_dataset('analysis')[testing_indices[model]]
+      scores[model] = self.models[model].get_scores(x_test, true)
 
       if verbose:
         print(model + ':')

@@ -13,6 +13,7 @@ class MLP:
 
     def __init__(self, NDIM):
         """Initializes a DNN and scaler which can be used in standardized training"""
+        NDIM = 32
         input_layer = Input(shape=NDIM)
         dense = Dense(NDIM, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(input_layer)
         dense = Dense(NDIM, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(dense)
@@ -29,9 +30,10 @@ class MLP:
             max_queue_size = 10, workers = 12, use_multiprocessing = True):
         """Acts as an interface for the underlying model's fit method, converting standardized data
         into a format which the MLP can recognize"""
+        
+        x = x[:, :32]
         self.scaler.fit(x)
         x = self.scaler.transform(x)
-
         y = np.array(y == 2)
         # print(y)
 
@@ -64,6 +66,7 @@ class MLP:
         gets data into a format appropriate for testing"""
 
         # Get the predictions
+        data = data[:, :32]
         data = self.scaler.transform(data)
         preds = self.model.predict(data)
 

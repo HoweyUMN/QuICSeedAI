@@ -228,7 +228,7 @@ class ML_QuIC:
       return np.array(self.labels)
     
     elif data_selection == 'analysis':
-      return np.array(self.analysis_dataset.drop('content_replicate', axis=1))
+      return np.array(self.analysis_dataset.drop(columns = ['content_replicate', 'TimeToThreshold', 'RAF']))
     
     raise Exception('Please select raw, labels, or analysis for option to get array of')
 
@@ -344,9 +344,10 @@ class ML_QuIC:
       for tag in tags:
         models += self.tags[tag]
  
-    # Perform analysis on all models
+    # Perform analysis on all models and return incorrect indices
+    incorrect_indices = {}
     for model in models:
-      print('Results on False Positives for {}:'.format(model))
+      print('-------- Results on False Positives for {} --------'.format(model))
 
       # Get the test set to examine
       if test_indices_dict == None:
@@ -355,7 +356,10 @@ class ML_QuIC:
         test_indices = test_indices_dict[model]
 
       # Get the test data for analysis
-      x_test = self.get_numpy_dataset('raw')[test_indices]
+      if self.model_dtype[model] == 'raw':
+        x_test = self.get_numpy_dataset('raw')[test_indices]
+      else:
+        x_test = self.get_numpy_dataset('analysis')[test_indices]
       y_test = self.get_numpy_dataset('labels')[test_indices]
 
       # Get model predictions
@@ -363,19 +367,63 @@ class ML_QuIC:
       preds_fp = preds[y_test == 1]
 
       # Case where classifier has a binary negative or positive output
-      if np.max(preds) <= 1:
-        y_test_binary = np.array(y_test == 2)
-        
-        # Get basic metrics on FP data
-        correct_preds_fp = len(preds_fp[preds_fp <= 0.5])
-        print('Accuracy on False Positives: {}'.format(correct_preds_fp / len(preds_fp)))
+      if np.max(preds) > 1:
+        preds_fp = np.array(preds_fp == 2)
+      y_test_binary = np.array(y_test == 2)
+      
+      # Get basic metrics on FP data
+      correct_preds_fp = len(preds_fp[preds_fp < 0.5])
+      print('Accuracy on False Positives: {}'.format(correct_preds_fp / len(preds_fp)))
 
-        # Determine FP contribution to misclass rate
-        incorrect_preds = len(y_test_binary[preds != y_test_binary])
-        incorrect_preds_fp = len(preds_fp) - correct_preds_fp
-        print('False Positives Account for {:.2f}% of total misclassifications.'.format(100 * (incorrect_preds_fp / incorrect_preds)))
+      # Determine FP contribution to misclass rate
+      incorrect_preds = len(y_test_binary[preds != y_test_binary])
+      incorrect_preds_fp = len(preds_fp) - correct_preds_fp
+      print('False Positives Account for {:.2f}% of total misclassifications.'.format(100 * (incorrect_preds_fp / incorrect_preds)))
 
-     
+      # Evaluate nature of FPs that were misclassified
+      ttt = np.array(self.analysis_dataset['TimeToThreshold'])[test_indices][y_test == 1]
+      raf = np.array(self.analysis_dataset['RAF'])[test_indices][y_test == 1]
+      mpr = np.array(self.analysis_dataset['MPR'])[test_indices][y_test == 1]
+      ms = np.array(self.analysis_dataset['MS'])[test_indices][y_test == 1]
+
+      ttt_mis = np.mean(ttt[preds_fp >= 0.5])
+      ttt_cor = np.mean(ttt[preds_fp < 0.5])
+      raf_mis = np.mean(raf[preds_fp >= 0.5])
+      raf_cor = np.mean(raf[preds_fp < 0.5])
+      mpr_mis = np.mean(mpr[preds_fp >= 0.5])
+      mpr_cor = np.mean(mpr[preds_fp < 0.5])
+      ms_mis = np.mean(ms[preds_fp >= 0.5])
+      ms_cor = np.mean(ms[preds_fp < 0.5])
+
+      print('Misclassified FP Characteristics:')
+      print('Average Time to Threshold: {}'.format(ttt_mis))
+      print('Average RAF: {}'.format(raf_mis))
+      print('Average MPR: {}'.format(mpr_mis))
+      print('Average MS: {}'.format(ms_mis))
+
+      print('Correctly Classified FP Characteristics:')
+      print('Average Time to Threshold: {}'.format(ttt_cor))
+      print('Average RAF: {}'.format(raf_cor))
+      print('Average MPR: {}'.format(mpr_cor))
+      print('Average MS: {}'.format(ms_cor))
+      
+      incorrect_indices[model] = test_indices[preds != y_test_binary]
+
+    print('-------- Positive Characteristics for Reference --------')
+    pos = self.analysis_dataset.iloc[(self.get_numpy_dataset('labels') == 2)] # Positive analysis dataset
+    print('Time To Threshold:')
+    print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'TimeToThreshold'].min(), pos.loc[:, 'TimeToThreshold'].mean(), pos.loc[:, 'TimeToThreshold'].max()))
+    print('RAF:')
+    print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'RAF'].min(), pos.loc[:, 'RAF'].mean(), pos.loc[:, 'RAF'].max()))
+    print('MPR:')
+    print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'MPR'].min(), pos.loc[:, 'MPR'].mean(), pos.loc[:, 'MPR'].max()))
+    print('MS:')
+    print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'MS'].min(), pos.loc[:, 'MS'].mean(), pos.loc[:, 'MS'].max()))
+    
+
+    return incorrect_indices
+    
+
   def get_model_plots(self, model_names = None, tags = None):
     """Get plots for models according to their kinds and tags"""
 
@@ -407,7 +455,9 @@ class ML_QuIC:
       # Select predictions and true labels for this model
       y_pred = preds[model]
       y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
-      y_true = np.asarray(y_true == 2, dtype=int)
+
+      if np.max(y_pred) <= 1:
+        y_true = np.asarray(y_true == 2, dtype=int)
       
       # Unsupervised block handled differently
       if plot_category == 'Unsupervised'.lower():
@@ -440,7 +490,13 @@ class ML_QuIC:
 
     # Plot confusion matrix
     ax[0, 0].set_title('Binary Confusion Matrix')
-    ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=(y_pred >= 0.5), ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'])
+    if np.max(y_pred) > 1:
+      y_cm = np.array(np.rint(y_true) == 2, dtype = int)
+      y_cm_pred = np.array(np.rint(y_pred) == 2, dtype=int)
+    else:
+      y_cm_pred = y_pred 
+      y_cm = y_true
+    ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=(y_cm_pred >= 0.5), ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'])
 
     # Violin plot on the classificatoin distributions
     ax[0, 1].set_title('Classification Distribution')
@@ -478,21 +534,31 @@ class ML_QuIC:
     ds = self.get_numpy_dataset()[self.testing_indices[model]]
     
     # Generate plot of data colored by class
-    ax[0, 0].set_title('Classifications')
+    ax[1, 0].set_title('Classifications')
     for i,data in enumerate(ds):
-      ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_pred[i]])
+      ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_pred[i]])
 
     # Confusion Matrix plot
     ax[0, 1].set_title('Confusion Matrix')
-    ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=y_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
+    if np.max(y_pred) > 1:
+      y_cm = np.array(np.rint(y_true) == 2, dtype = int)
+      y_cm_pred = np.array(np.rint(y_pred) == 2, dtype=int)
+    else:
+      y_cm_pred = y_pred 
+      y_cm = y_true
+    ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
     
+    ax[0, 0].set_title('Classification Clusters')
+    datapoints = self.get_numpy_dataset('analysis')
+    pos_datapoints = datapoints[y_cm_pred >= 0.5]
+    neg_datapoints = datapoints[y_cm_pred < 0.5]
+    ax[0, 0].scatter(pos_datapoints[:, 0], pos_datapoints[:, 1], c = 'g')
+    ax[0, 0].scatter(neg_datapoints[:, 0], neg_datapoints[:, 1], c = 'r')
+
     # Plot dataset according to correct or incorrect classification
-    ax[1, 0].set_title('Incorrectly Classified')
-    ax[1, 1].set_title('Correctly Classified')
+    ax[1, 1].set_title('Incorrectly Classified')
     for i,data in enumerate(ds):
-      if y_pred[i] == y_true[i]:
+      if y_pred[i] != y_true[i]:
         ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
-      else:
-        ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
 
     return fig, ax

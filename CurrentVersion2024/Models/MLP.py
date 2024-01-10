@@ -1,8 +1,5 @@
 import numpy as np
-np.object = object
-np.int = int
-np.float = float
-np.bool = bool
+import keras
 import tensorflow as tf
 from keras.layers import Dense, Input
 from keras import Model, regularizers
@@ -14,16 +11,16 @@ class MLP:
     def __init__(self, NDIM):
         """Initializes a DNN and scaler which can be used in standardized training"""
         input_layer = Input(shape=NDIM)
-        dense = Dense(NDIM, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(input_layer)
-        dense = Dense(NDIM, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(dense)
-        dense = Dense(NDIM, activation = 'relu', kernel_regularizer = regularizers.L1L2(1e-4, 1e-4))(dense)
-        output = Dense(1, activation='sigmoid')(dense)
+        dense = Dense(NDIM, activation = 'relu')(input_layer)
+        dense = Dense(NDIM, activation = 'relu')(dense)
+        dense = Dense(NDIM, activation = 'relu')(dense)
+        output = Dense(3, activation='sigmoid')(dense)
 
         self.model = Model(input_layer, output)
         self.scaler = StandardScaler()
 
-    def fit(self, learning_rate=1e-4, loss = 'binary_crossentropy',
-            x = None, y = None, batch_size = 128, epochs = 500, verbose = 0, callbacks = None, validation_split = 0.1,
+    def fit(self, learning_rate=1e-4, loss = 'categorical_crossentropy',
+            x = None, y = None, batch_size = 128, epochs = 500, verbose = 1, callbacks = None, validation_split = 0.1,
             validation_data = None, shuffle = True, class_weight = None, sample_weight=None, initial_epoch=0, 
             steps_per_epoch = None, validation_steps = None, validation_batch_size = None, validation_freq = 1, 
             max_queue_size = 10, workers = 12, use_multiprocessing = True):
@@ -32,10 +29,14 @@ class MLP:
         self.scaler.fit(x)
         x = self.scaler.transform(x)
 
-        y = np.array(y == 2)
+        # y = np.array(y == 2)
         # print(y)
+        y = keras.utils.to_categorical(y)
 
         self.model.compile(optimizer = tf.keras.optimizers.Adam(learning_rate), loss = loss)
+
+        if callbacks == None:
+            callbacks = [keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 10, mode='min', restore_best_weights = True)]
 
         self.model.fit(
             x,
@@ -67,17 +68,22 @@ class MLP:
         data = self.scaler.transform(data)
         preds = self.model.predict(data)
 
+        # Return just the class prediction as 0, 1, 2
+        pred_1d = []
+        for pred in preds:
+            pred_1d.append(0 * pred[0] + 1 * pred[1] + 2 * pred[2])
+        pred_1d = np.array(pred_1d)
+
         # Returns binary + or - only instead of raw score
         if binary:
-            preds = np.squeeze(np.where(preds >= 0.5, 1, 0))
-
-        # print(preds)
-        return preds
+            pred_1d = (pred_1d >= 1.5)
+            
+        return pred_1d
 
     def get_scores(self, data, true):
         """Acts as an interface to get a model's predictions and obtain metrics from them"""
         pred = self.predict(data, binary=True)
-        true = np.where(true > 1, 1, 0)
+        true = np.where(true == 2, 1, 0)
 
         class_report = classification_report(true, pred, target_names=["neg", "pos"])
         return class_report

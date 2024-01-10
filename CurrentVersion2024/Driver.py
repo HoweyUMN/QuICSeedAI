@@ -44,14 +44,29 @@ ml_quic.evaluate_fp_performance(tags=['Supervised'])
 ml_quic.get_model_plots(tags=['Supervised'])
 
 # %%
-### KMeans - Analysis
+### Analysis
 raw_ml_quic = copy.copy(ml_quic)
 ml_quic = ML_QuIC.ML_QuIC()
 ml_quic.import_dataset(data_dir=DATA_DIR);
 
 #%%
+### Add KMeans to the list of models to test
+from Models import KMeansModel
+ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 3), model_name='KMeans', data_type='analysis', tag='Unsupervised')
+ml_quic.separate_train_test(model_names=['KMeans'], train_type=3)
+
+#%%
+### Add Spectral Clustering to list of models to test
+from Models import SpectralClustering
+imp.reload(SpectralClustering)
+ml_quic.add_model(SpectralClustering.SpectralClustering(n_clusters=3), model_name = 'Spectral', data_type='analysis', tag='Unsupervised')
+ml_quic.separate_train_test(model_names=['Spectral'], train_type=3)
+
+#%%
 ### Get Unsupervised Scores and Plots
 ml_quic.train_models(tags=['Unsupervised'])
-ml_quic.get_model_scores(tags=['Unsupervised']);
+ml_quic.get_model_scores(tags=['Unsupervised'])
 ml_quic.evaluate_fp_performance(tags=['Unsupervised'])
 ml_quic.get_model_plots(tags=['Unsupervised'])
+
+# %%

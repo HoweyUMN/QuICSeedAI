@@ -477,45 +477,80 @@ class ML_QuIC:
     fig.tight_layout(pad=3.0)
     fig.suptitle('Classification Results for ' + model)
 
-    # Got positive and negative predictions for violin plot
-    preds_neg = []
-    preds_pos = [] 
-    for i in range(len(y_true)):
-      y_predicted = y_pred[i]
-      y_real = y_true[i]
-      if y_real == 1:
+    # Case of binary +/- classifier
+    if np.max(y_true) == 1:
+      # Got positive and negative predictions for violin plot
+      preds_neg = []
+      preds_pos = [] 
+      for i in range(len(y_true)):
+        y_predicted = y_pred[i]
+        y_real = y_true[i]
+        if y_real == 1:
+            preds_pos.append(y_predicted)
+        else:
+            preds_neg.append(y_predicted)
+
+      # Plot confusion matrix
+      ax[0, 0].set_title('Binary Confusion Matrix')
+      ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=(y_pred >= 0.5), ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'])
+
+      # Violin plot on the classificatoin distributions
+      ax[0, 1].set_title('Classification Distribution')
+      sns.violinplot(data=[preds_neg, preds_pos], orient='h', inner='stick', cut=0, ax=ax[0, 1])
+
+      # Plot an ROC curve for supervised learning methods
+      ax[1, 0].set_title('ROC Curve, AUC: {0:.2f}'.format(roc_auc_score(y_true, y_pred)))
+      RocCurveDisplay.from_predictions(y_true, y_pred, ax=ax[1, 0])
+
+      # Obtain the testing data for reference
+      ds = self.get_numpy_dataset()[self.testing_indices[model]]
+
+      # Plot Incorrectly Classed Data
+      ax[1, 1].set_title('Incorrectly Classified')
+      for i,data in enumerate(ds):
+        if y_pred[i] != y_true[i]:
+          ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
+
+    # Case 3 class classifier (-/FP/+)
+    else:
+      # Got positive and negative predictions for violin plot
+      preds_neg = []
+      preds_pos = [] 
+      preds_fp = []
+      for i in range(len(y_true)):
+        y_predicted = y_pred[i]
+        y_real = y_true[i]
+        if y_real == 2:
           preds_pos.append(y_predicted)
-      else:
+        elif y_real == 1:
+          preds_fp.append(y_predicted)
+        else:
           preds_neg.append(y_predicted)
 
-    # Plot confusion matrix
-    ax[0, 0].set_title('Binary Confusion Matrix')
-    if np.max(y_pred) > 1:
-      y_cm = np.array(np.rint(y_true) == 2, dtype = int)
-      y_cm_pred = np.array(np.rint(y_pred) == 2, dtype=int)
-    else:
-      y_cm_pred = y_pred 
-      y_cm = y_true
-    ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=(y_cm_pred >= 0.5), ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'])
+      y_binary = (y_true == 2)
+      pred_binary = (y_pred >= 1.5)
 
-    # Violin plot on the classificatoin distributions
-    ax[0, 1].set_title('Classification Distribution')
-    sns.violinplot(data=[preds_neg, preds_pos], orient='h', inner='stick', cut=0, ax=ax[0, 1])
+      # Plot confusion matrix
+      ax[0, 0].set_title('Binary Confusion Matrix')
+      ConfusionMatrixDisplay.from_predictions(y_true=y_binary, y_pred=pred_binary, ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'])
 
-    # Plot an ROC curve for supervised learning methods
-    ax[1, 0].set_title('ROC Curve, AUC: {0:.2f}'.format(roc_auc_score(y_true, y_pred)))
-    RocCurveDisplay.from_predictions(y_true, y_pred, ax=ax[1, 0])
+      # Violin plot on the classificatoin distributions
+      ax[0, 1].set_title('Classification Distribution')
+      ax[0, 1].violinplot(dataset=[preds_neg, preds_pos], showmeans=True, showextrema=True, vert=False)
 
+      # Plot an ROC curve for supervised learning methods
+      ax[1, 0].set_title('ROC Curve, AUC: {0:.2f}'.format(roc_auc_score(y_binary, pred_binary)))
+      RocCurveDisplay.from_predictions(y_binary, pred_binary, ax=ax[1, 0])
 
-    # Obtain the testing data for reference
-    ds = self.get_numpy_dataset()[self.testing_indices[model]]
+      # Obtain the testing data for reference
+      ds = self.get_numpy_dataset()[self.testing_indices[model]]
 
-    # Plot Incorrectly Classed Data
-    ax[1, 1].set_title('Incorrectly Classified')
-    for i,data in enumerate(ds):
-      if y_pred[i] != y_true[i]:
-        ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
-
+      # Plot Incorrectly Classed Data
+      ax[1, 1].set_title('Incorrectly Classified')
+      for i,data in enumerate(ds):
+        if pred_binary[i] != y_binary[i]:
+          ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
+      
     return fig, ax
 
   def _unsupervised_plots(self, y_true, y_pred, model, color_map = ['b', 'k', 'g', 'r']):

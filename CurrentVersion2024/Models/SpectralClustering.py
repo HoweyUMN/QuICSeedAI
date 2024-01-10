@@ -1,18 +1,19 @@
 from sklearn.cluster import SpectralClustering
+from sklearn.decomposition import PCA
 from sklearn.metrics import classification_report
 import numpy as np
 
-class EXAMPLE:
+class SpectralClustering:
 
-    def __init__(self, NDIM):
+    def __init__(self, n_clusters = 2):
         """Creates the model of a specified type to be the underlying model"""
-        self.model = SpectralClustering(n_clusters=2)
-        self.pca = PCA(n_components=2)
+        self.model = SpectralClustering(n_clusters=n_clusters, random_state = 7)
+        self.pca = PCA(n_components=n_clusters)
 
     def fit(self, x = None, y = None):
         """Acts as an interface for the underlying model's fit method, converting standardized data
         into a format which the MLP can recognize"""
-        self.pca.fit_transform(x)
+        x = self.pca.fit_transform(x)
         self.model.fit(
             x
         )

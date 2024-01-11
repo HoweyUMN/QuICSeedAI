@@ -21,6 +21,7 @@ from sklearn.decomposition import KernelPCA
 import multiprocessing
 import seaborn as sns
 from sklearn.metrics import RocCurveDisplay, roc_auc_score
+import keras
 
 # base = importr('base')
 # utils = importr('utils')
@@ -34,9 +35,12 @@ class ML_QuIC:
   on RT-Quic data. R processing is currently unimplemented.
 
   \nAuthor - Kyle Howey
-  \nVersion - November 27, 2023"""
+  \nVersion - January 11, 2024"""
 
   def __init__(self):
+    # Reset backend session
+    keras.backend.clear_session()
+
     self.raw_dataset = None
     """The raw fluorescence values as directly imported from the CSVs"""
 
@@ -194,6 +198,10 @@ class ML_QuIC:
 
     if data_type != 'raw' and data_type != 'analysis':
       raise Exception('Datatype must be raw or analysis!')
+    
+    if model in self.models.keys():
+      print('Model name already used, removing previous reference...')
+      self.drop_model(model)
 
     self.models[model_name] = model
     self.model_dtype[model_name] = data_type
@@ -207,6 +215,7 @@ class ML_QuIC:
   def drop_model(self, model_name = ''):
     """Removes a model from this datastructure"""
     del(self.models[model_name])
+    del(self.model_dtype[model_name])
     for key, models in self.tags.items():
       if model_name in models:
         self.tags[key].remove(model_name)
@@ -368,7 +377,7 @@ class ML_QuIC:
 
       # Case where classifier has a binary negative or positive output
       if np.max(preds) > 1:
-        preds_fp = np.array(preds_fp == 2)
+        preds_fp = np.array(preds_fp >= 1.5)
       y_test_binary = np.array(y_test == 2)
       
       # Get basic metrics on FP data

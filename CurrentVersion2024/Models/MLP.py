@@ -20,7 +20,7 @@ class MLP:
         self.scaler = StandardScaler()
 
     def fit(self, learning_rate=1e-4, loss = 'categorical_crossentropy',
-            x = None, y = None, batch_size = 128, epochs = 500, verbose = 1, callbacks = None, validation_split = 0.1,
+            x = None, y = None, batch_size = 128, epochs = 500, verbose = 0, callbacks = None, validation_split = 0.1,
             validation_data = None, shuffle = True, class_weight = None, sample_weight=None, initial_epoch=0, 
             steps_per_epoch = None, validation_steps = None, validation_batch_size = None, validation_freq = 1, 
             max_queue_size = 10, workers = 12, use_multiprocessing = True):

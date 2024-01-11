@@ -1,5 +1,6 @@
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 from sklearn.metrics import classification_report
 import numpy as np
 
@@ -9,8 +10,10 @@ class SVM:
     def __init__(self, kernel = 'rbf', degree = 3, random_state = 7, ):
         self.model = SVC(kernel=kernel, degree = degree, random_state=random_state)
         self.scaler = StandardScaler()
+        self.pca = PCA(n_components=2)
 
     def fit(self, x = None, y = None):
+        x = self.pca.fit_transform(x)
         self.scaler.fit(x)
         x = self.scaler.transform(x)
         y = np.array(y == 2)
@@ -18,6 +21,7 @@ class SVM:
     
     def predict(self, data, binary = True):
         """Binary is unimplemented because SVM is a true binary classifier with no ambiguity"""
+        data = self.pca.transform(data)
         data = self.scaler.transform(data)
         return self.model.predict(data)
     

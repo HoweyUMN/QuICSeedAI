@@ -1,30 +1,34 @@
-from sklearn.cluster import SpectralClustering
+from sklearn.cluster import SpectralClustering as SC
 from sklearn.decomposition import PCA
 from sklearn.metrics import classification_report
 import numpy as np
 
 class SpectralClustering:
 
-    def __init__(self, n_clusters = 2):
+    def __init__(self, n_clusters = 2, n_vars = 2):
         """Creates the model of a specified type to be the underlying model"""
-        self.model = SpectralClustering(n_clusters=n_clusters, random_state = 7)
-        self.pca = PCA(n_components=n_clusters)
+        self.model = SC(n_clusters=n_clusters, n_components=n_vars, n_init=10)
+        self.labels = []
+        self.learned_data = np.zeros(0)
+        # self.pca = PCA(n_components=min(n_vars, 4))
 
     def fit(self, x = None, y = None):
         """Acts as an interface for the underlying model's fit method, converting standardized data
         into a format which the MLP can recognize"""
-        x = self.pca.fit_transform(x)
-        self.model.fit(
-            x
-        )
+        # x = self.pca.fit_transform(x)
+        pass
 
     def predict(self, data, binary = False):
         """Acts as an interface for the model's prediction method, performs scaling and
         gets data into a format appropriate for testing"""
 
+        # Save time because this takes forever
+        if self.learned_data == data:
+            return self.labels
+
         # Get the predictions
-        data = self.pca.transform(data)
-        return self.model.predict(data)
+        # data = self.pca.transform(data)
+        return self.model.fit_predict(data)
 
     def get_scores(self, data, true):
         """Acts as an interface to get a model's predictions and obtain metrics from them"""

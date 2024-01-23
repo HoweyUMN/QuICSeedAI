@@ -102,16 +102,26 @@ class ML_QuIC:
       # Get Metadata
       meta_path = glob.glob(folder + '/*meta*.csv')[0].replace('\\', '/')
       this_md = pd.read_csv(meta_path)
+      this_md = this_md[this_md['content'] == 'blank']
+      this_md = this_md[this_md['content'] == 'pos']
+      this_md = this_md[this_md['content'] == 'neg']
       metadata = pd.concat((metadata, this_md))
 
       # Get Raw Data
       raw_path = glob.glob(folder + '/*raw*.csv')[0].replace('\\', '/')
       this_raw = pd.read_csv(raw_path)
+      this_raw = this_raw[this_raw['content_replicate'].contains('blank')]
+      print('Passed') # TODO
+      this_raw = this_raw['pos' in this_raw['content_replicate']]
+      this_raw = this_raw['neg' in this_raw['content_replicate']]
       raw_data = pd.concat((raw_data, this_raw))
 
       # Get Analyzed Data
       analysis_path = glob.glob(folder + '/*analysis*.csv')[0].replace('\\', '/')
       this_analysis = pd.read_csv(analysis_path)
+      this_analysis = this_analysis['blank' in this_analysis['content_replicate']]
+      this_analysis = this_analysis['pos' in this_analysis['content_replicate']]
+      this_analysis = this_analysis['neg' in this_analysis['content_replicate']]
       analysis = pd.concat((analysis, this_analysis))
 
     # Error Checking
@@ -237,7 +247,7 @@ class ML_QuIC:
       return np.array(self.labels)
     
     elif data_selection == 'analysis':
-      return np.array(self.analysis_dataset.drop(columns = ['content_replicate', 'TimeToThreshold', 'RAF']))
+      return np.array(self.analysis_dataset.drop(columns = ['content_replicate']))
     
     raise Exception('Please select raw, labels, or analysis for option to get array of')
 

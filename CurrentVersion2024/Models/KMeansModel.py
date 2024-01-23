@@ -22,7 +22,11 @@ class KMeansModel:
         """Binary is unimplemented because KMeans returns true binary output"""
         data = self.pca.transform(data)
         # data = self.scaler.transform(data)
-        return self.model.predict(data)
+        preds = self.model.predict(data)
+        max = np.max(preds)
+        preds = np.array(preds == max, dtype=int) # Fix an issue where KMeans picks weird labels
+
+        return preds
     
     def get_scores(self, data, true):
         pred = self.predict(data, binary=True)

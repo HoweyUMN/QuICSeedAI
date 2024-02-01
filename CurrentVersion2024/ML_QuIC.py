@@ -140,6 +140,11 @@ class ML_QuIC:
   def get_num_timesteps_raw(self):
     """Getter function for the number of features used in training"""
     return self.raw_dataset.shape[1] - 1 # -1 because we ignore labels
+  
+  def get_dataset_statistics(self):
+    """Getter function to get stats of the imported dataset"""
+    if self.metadata is None:
+      raise Exception("No data imported.")
 
   def separate_train_test(self, seed = 7, test_size = 0.1, train_type = 0, model_names = None, tags = None):
     """Separates imported data into a training set and a testing set.\n

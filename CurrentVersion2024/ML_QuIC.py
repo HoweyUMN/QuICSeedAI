@@ -102,26 +102,16 @@ class ML_QuIC:
       # Get Metadata
       meta_path = glob.glob(folder + '/*meta*.csv')[0].replace('\\', '/')
       this_md = pd.read_csv(meta_path)
-      this_md = this_md[this_md['content'] == 'blank']
-      this_md = this_md[this_md['content'] == 'pos']
-      this_md = this_md[this_md['content'] == 'neg']
       metadata = pd.concat((metadata, this_md))
 
       # Get Raw Data
       raw_path = glob.glob(folder + '/*raw*.csv')[0].replace('\\', '/')
       this_raw = pd.read_csv(raw_path)
-      this_raw = this_raw[this_raw['content_replicate'].contains('blank')]
-      print('Passed') # TODO
-      this_raw = this_raw['pos' in this_raw['content_replicate']]
-      this_raw = this_raw['neg' in this_raw['content_replicate']]
       raw_data = pd.concat((raw_data, this_raw))
 
       # Get Analyzed Data
       analysis_path = glob.glob(folder + '/*analysis*.csv')[0].replace('\\', '/')
       this_analysis = pd.read_csv(analysis_path)
-      this_analysis = this_analysis['blank' in this_analysis['content_replicate']]
-      this_analysis = this_analysis['pos' in this_analysis['content_replicate']]
-      this_analysis = this_analysis['neg' in this_analysis['content_replicate']]
       analysis = pd.concat((analysis, this_analysis))
 
     # Error Checking
@@ -141,10 +131,34 @@ class ML_QuIC:
     """Getter function for the number of features used in training"""
     return self.raw_dataset.shape[1] - 1 # -1 because we ignore labels
   
-  def get_dataset_statistics(self):
+  def get_dataset_statistics(self, verbose = 1):
     """Getter function to get stats of the imported dataset"""
+
+    # Ensure there is data to analyze
     if self.metadata is None:
       raise Exception("No data imported.")
+    
+    # Get the counts of different well types in the dataset
+    negatives = len(self.metadata[self.metadata['final'] == 0])
+    fps = len(self.metadata[self.metadata['final'] == 1])
+    positives = len(self.metadata[self.metadata['final'] == 2])
+
+    blank_wells = len(self.metadata[self.metadata['content'] == 'blank'])
+    control_wells = len(self.metadata[self.metadata['content'] == 'pos']) + len(self.metadata[self.metadata['content'] == 'neg'])
+    data_wells = len(self.metadata) - control_wells - blank_wells
+
+    if verbose:
+      print('---- Dataset Label Distribution ----')
+      print('Negative Samples: {}'.format(negatives))
+      print('False Positive Samples: {}'.format(fps))
+      print('Positive Samples: {}'.format(positives))
+
+      print('\n---- Well Content Distribution: ----')
+      print('Data Wells: {}'.format(data_wells))
+      print('Blank Wells: {}'.format(blank_wells))
+      print('Control Wells: {}'.format(control_wells))
+
+    return [negatives, fps, positives, blank_wells, control_wells, data_wells]
 
   def separate_train_test(self, seed = 7, test_size = 0.1, train_type = 0, model_names = None, tags = None):
     """Separates imported data into a training set and a testing set.\n

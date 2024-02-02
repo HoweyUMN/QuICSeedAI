@@ -114,6 +114,10 @@ class ML_QuIC:
       this_analysis = pd.read_csv(analysis_path)
       analysis = pd.concat((analysis, this_analysis))
 
+      raw_data = raw_data[metadata['content'] != 'blank']
+      analysis = analysis[metadata['content'] != 'blank']
+      metadata = metadata[metadata['content'] != 'blank']
+
     # Error Checking
     if len(metadata) != len(raw_data) or len(metadata) != len(analysis):
       raise Exception('Dataset sizes are inconsistent - ensure all raw, meta, and analysis' +
@@ -143,9 +147,9 @@ class ML_QuIC:
     fps = len(self.metadata[self.metadata['final'] == 1])
     positives = len(self.metadata[self.metadata['final'] == 2])
 
-    blank_wells = len(self.metadata[self.metadata['content'] == 'blank'])
+    # blank_wells = len(self.metadata[self.metadata['content'] == 'blank'])
     control_wells = len(self.metadata[self.metadata['content'] == 'pos']) + len(self.metadata[self.metadata['content'] == 'neg'])
-    data_wells = len(self.metadata) - control_wells - blank_wells
+    data_wells = len(self.metadata) - control_wells 
 
     if verbose:
       print('---- Dataset Label Distribution ----')
@@ -155,10 +159,10 @@ class ML_QuIC:
 
       print('\n---- Well Content Distribution: ----')
       print('Data Wells: {}'.format(data_wells))
-      print('Blank Wells: {}'.format(blank_wells))
+      # print('Blank Wells: {}'.format(blank_wells))
       print('Control Wells: {}'.format(control_wells))
 
-    return [negatives, fps, positives, blank_wells, control_wells, data_wells]
+    return [negatives, fps, positives, control_wells, data_wells]
 
   def separate_train_test(self, seed = 7, test_size = 0.1, train_type = 0, model_names = None, tags = None):
     """Separates imported data into a training set and a testing set.\n

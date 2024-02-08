@@ -418,30 +418,44 @@ class ML_QuIC:
       # Remove controls from dataset for better performance
       test_df = test_df[~test_df['content_replicate'].str.contains('pos', na = False)]
       test_df = test_df[~test_df['content_replicate'].str.contains('neg', na = False)]
-        
-      # Create dictionary of replicates together      
-      replicates = {}
-      max_replicates = len(self.replicate_data.columns) - 3 # 3 columns are unpopulated
+      
+      replicates = [] # list of dataframes only containing replicates
       for sample in self.replicate_data['Sample']:
+        replicate_df = test_df[test_df.content_replicate.str.contains('^' + sample + 'x')]
+        if len(replicate_df) < 3: continue # The replicate was broken up, so we won't get useful information
+        replicates.append(replicate_df)
+
+      max_num_replicates = len(self.replicate_data.columns) - 3 # Remove metadata from count
+
+      # Extract data about each replicate
+      correct_preds = 0
+      correct_by_replicate = np.zeros(max_num_replicates)
+      for replicate_df in replicates:
+        preds = np.full(max_num_replicates, -1)
+        for i in range(max_num_replicates):
+          if i != 0:
+            # Extract predictions
+            replicate_id = '%02d' % i
+            preds[i] = test_df[test_df['content_replicate'].str.contains(replicate_id)]['Predictions']
+          else:
+            preds[i] = test_df[~test_df['content_replicate'].str.contains('x')]['Predictions']
         
-        # Extract all pertinent replicate information from the dataset
-        datapoint = {}
-        replicate_together = True
-        for i in range(1, max_replicates + 1):
-          replicate_id = "%02d" % i
+        # Check how predictions compare
+        sum = 0
+        count = 0
+        for pred in preds:
+          if pred == -1: continue # Not in dataframe
+
+          count += 1
+          if pred == 
+
+
           
-          if self.replicate_data[self.replicate_data['Sample'] == sample][replicate_id] != 'NA': # If this replicate should be in the dataset
-            if test_df['Sample'].str.contains(sample + 'x' + replicate_id, na = False): # Sample is in testing set
-              datapoint[replicate_id] = test_df[(sample + 'x' + replicate_id) in test_df['Sample']]
-            else:
-              replicate_together = False
-              break # This replicate is broken up between datasets, so we ignore it for evaluation
-        
-        datapoint['Label'] = self.replicate_data[self.replicate_data['Sample'] == sample]['final']
-        if replicate_together:
-          replicates[sample] = datapoint
+
           
-             
+
+      
+      
         
   def evaluate_fp_performance(self, test_indices_dict = None, model_names = None, tags = None):
     """Evaluates the performance of a model on known false positives in detail. Works for 2 class and 3 class models."""

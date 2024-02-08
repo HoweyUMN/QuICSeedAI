@@ -138,6 +138,7 @@ class ML_QuIC:
     self.metadata = metadata
     self.analysis_dataset = analysis
     self.labels = metadata['final']
+    self.replicate_data = replicates
 
     return [raw_data, metadata, analysis]
   
@@ -412,8 +413,8 @@ class ML_QuIC:
         test_df = self.analysis_dataset.iloc[test_indices]
         
       # Append to dataset for easier function
-      test_df['Predictions'] = self.predictions[model]
-      test_df['True'] = self.labels[test_indices]
+      test_df['Predictions'] = self.models[model].predict(self.get_numpy_dataset('raw')[test_indices], binary = True)
+      test_df['True'] = self.get_numpy_dataset('labels')[test_indices]
       
       # Remove controls from dataset for better performance
       test_df = test_df[~test_df['content_replicate'].str.contains('pos', na = False)]
@@ -431,31 +432,37 @@ class ML_QuIC:
       correct_preds = 0
       correct_by_replicate = np.zeros(max_num_replicates)
       for replicate_df in replicates:
-        preds = np.full(max_num_replicates, -1)
+        preds = []
         for i in range(max_num_replicates):
           if i != 0:
             # Extract predictions
             replicate_id = '%02d' % i
-            preds[i] = test_df[test_df['content_replicate'].str.contains(replicate_id)]['Predictions']
+            preds.append(test_df[test_df['content_replicate'].str.contains(replicate_id)]['Predictions'].iloc[0])
           else:
-            preds[i] = test_df[~test_df['content_replicate'].str.contains('x')]['Predictions']
+            preds.append(test_df[~test_df['content_replicate'].str.contains('x')]['Predictions'].iloc[0])
         
         # Check how predictions compare
         sum = 0
         count = 0
-        for pred in preds:
+        for i,pred in enumerate(preds):
           if pred == -1: continue # Not in dataframe
 
           count += 1
-          if pred == 
-
-
-          
-
-          
-
-      
-      
+          # If prediction is correct, add to sum
+          if (pred == 1 and replicate_df['True'].iloc[0] == 2) or (pred == 0 and replicate_df['True'].iloc[0] < 2):
+            sum += 1
+            correct_by_replicate[i] += 1
+        
+        if round(sum / count) == 1:
+          if replicate_df['True'].iloc[0] == 2:
+            correct_preds += 1
+        else:
+          if replicate_df['True'].iloc[0] < 2:
+            correct_preds += 1
+            
+      print(correct_by_replicate)
+      print(correct_preds / len(replicates))
+            
         
   def evaluate_fp_performance(self, test_indices_dict = None, model_names = None, tags = None):
     """Evaluates the performance of a model on known false positives in detail. Works for 2 class and 3 class models."""

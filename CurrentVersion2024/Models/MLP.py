@@ -8,7 +8,7 @@ from sklearn.metrics import classification_report
 
 class MLP:
 
-    def __init__(self, NDIM):
+    def __init__(self, NDIM, class_weight = None):
         """Initializes a DNN and scaler which can be used in standardized training"""
         input_layer = Input(shape=NDIM)
         dense = Dense(NDIM, activation = 'relu')(input_layer)
@@ -18,12 +18,13 @@ class MLP:
 
         self.model = Model(input_layer, output)
         self.scaler = StandardScaler()
+        self.class_weight = class_weight
 
     def fit(self, learning_rate=1e-4, loss = 'categorical_crossentropy',
-            x = None, y = None, batch_size = 128, epochs = 500, verbose = 0, callbacks = None, validation_split = 0.1,
+            x = None, y = None, batch_size = 128, epochs = 700, verbose = 0, callbacks = None, validation_split = 0.1,
             validation_data = None, shuffle = True, class_weight = None, sample_weight=None, initial_epoch=0, 
             steps_per_epoch = None, validation_steps = None, validation_batch_size = None, validation_freq = 1, 
-            max_queue_size = 10, workers = 12, use_multiprocessing = True):
+            max_queue_size = 10, workers = 1, use_multiprocessing = True):
         """Acts as an interface for the underlying model's fit method, converting standardized data
         into a format which the MLP can recognize"""
         self.scaler.fit(x)
@@ -36,7 +37,7 @@ class MLP:
         self.model.compile(optimizer = tf.keras.optimizers.Adam(learning_rate), loss = loss)
 
         if callbacks == None:
-            callbacks = [keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 10, mode='min', restore_best_weights = True)]
+            callbacks = [keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 15, mode='min', restore_best_weights = True)]
 
         self.model.fit(
             x,
@@ -48,7 +49,7 @@ class MLP:
             validation_split,
             validation_data,
             shuffle,
-            class_weight,
+            self.class_weight,
             sample_weight,
             initial_epoch,
             steps_per_epoch,
@@ -68,7 +69,7 @@ class MLP:
         data = self.scaler.transform(data)
         preds = self.model.predict(data)
 
-        # Return just the class prediction as 0, 1, 2
+        # Return just the class prediction as more of a rating
         pred_1d = []
         for pred in preds:
             pred_1d.append(0 * pred[0] + 1 * pred[1] + 2 * pred[2])
@@ -76,7 +77,7 @@ class MLP:
 
         # Returns binary + or - only instead of raw score
         if binary:
-            pred_1d = (pred_1d >= 1.5)
+            pred_1d = (pred_1d >= 1.5) # 1.5 is a good cutoff as the highest score is a 3
             
         return pred_1d
 

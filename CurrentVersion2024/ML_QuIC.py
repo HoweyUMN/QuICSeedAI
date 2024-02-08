@@ -50,6 +50,9 @@ class ML_QuIC:
     self.metadata = None
     """The metadata associated with the different samples"""
 
+    self.replicate_data = None
+    """Stores relationship between replicates and sample id"""
+
     self.labels = None
     """The extracted labels from the dataset"""
 
@@ -96,6 +99,7 @@ class ML_QuIC:
     metadata = pd.DataFrame()
     raw_data = pd.DataFrame()
     analysis = pd.DataFrame()
+    replicates = pd.DataFrame()
     for i, folder in enumerate(folders):
       print('Loading Data from {}'.format(folder))
 
@@ -114,6 +118,12 @@ class ML_QuIC:
       this_analysis = pd.read_csv(analysis_path)
       analysis = pd.concat((analysis, this_analysis))
 
+      # Get replicate metadata for true data cells
+      replicate_path = glob.glob(folder + '/*replicate*.csv')[0].replace('\\', '/')
+      this_replicate = pd.read_csv(replicate_path)
+      replicates = pd.concat((replicates, this_replicate))
+
+      # Eliminate Blank wells from dataset
       raw_data = raw_data[metadata['content'] != 'blank']
       analysis = analysis[metadata['content'] != 'blank']
       metadata = metadata[metadata['content'] != 'blank']
@@ -277,7 +287,6 @@ class ML_QuIC:
   def train_models(self, dataset_raw = None, labels = None, model_names = None, tags=None):
     """Calls the saved models fit method, getting the necessary data if applicable - model names overrides tags"""
 
-
     # Make sure we have trainable data, either specified or generated here
     if dataset_raw is None:
       dataset_raw = self.get_numpy_dataset('raw')
@@ -332,6 +341,7 @@ class ML_QuIC:
       else:
         x_test = self.get_numpy_dataset('analysis')[testing_indices[model]]
       predictions[model] = self.models[model].predict(x_test)
+      self.predictions[model] = predictions[model]
 
     return predictions
 
@@ -376,15 +386,73 @@ class ML_QuIC:
         print(scores[model])
 
     return scores
-
-  def evaluate_fp_performance(self, test_indices_dict = None, model_names = None, tags = None):
-    """Evaluates the performance of a model on known false positives in detail. Works for 2 class and 3 class models."""
-
-    # If tag is specified, only train on given tag
+  
+  def evaluate_replicate_performance(self, test_indices_dict = None, model_names = None, tags = None):
+    # If tag is specified, only run given tag
     if (not tags is None) and (model_names is None):
       models = []
       for tag in tags:
         models += self.tags[tag]
+    else:
+      models = model_names
+
+    # Perform analysis for each model
+    for model in models:
+
+      # Get the test set to examine
+      if test_indices_dict == None:
+        test_indices = self.testing_indices[model]
+      else:
+        test_indices = test_indices_dict[model]
+        
+      # Get testing data
+      if self.model_dtype[model] == 'raw':
+        test_df = self.raw_dataset.iloc[test_indices]
+      else:
+        test_df = self.analysis_dataset.iloc[test_indices]
+        
+      # Append to dataset for easier function
+      test_df['Predictions'] = self.predictions[model]
+      test_df['True'] = self.labels[test_indices]
+      
+      # Remove controls from dataset for better performance
+      test_df = test_df[~test_df['content_replicate'].str.contains('pos', na = False)]
+      test_df = test_df[~test_df['content_replicate'].str.contains('neg', na = False)]
+        
+      # Create dictionary of replicates together      
+      replicates = {}
+      max_replicates = len(self.replicate_data.columns) - 3 # 3 columns are unpopulated
+      for sample in self.replicate_data['Sample']:
+        
+        # Extract all pertinent replicate information from the dataset
+        datapoint = {}
+        replicate_together = True
+        for i in range(1, max_replicates + 1):
+          replicate_id = "%02d" % i
+          
+          if self.replicate_data[self.replicate_data['Sample'] == sample][replicate_id] != 'NA': # If this replicate should be in the dataset
+            if test_df['Sample'].str.contains(sample + 'x' + replicate_id, na = False): # Sample is in testing set
+              datapoint[replicate_id] = test_df[(sample + 'x' + replicate_id) in test_df['Sample']]
+            else:
+              replicate_together = False
+              break # This replicate is broken up between datasets, so we ignore it for evaluation
+        
+        datapoint['Label'] = self.replicate_data[self.replicate_data['Sample'] == sample]['final']
+        if replicate_together:
+          replicates[sample] = datapoint
+          
+             
+        
+  def evaluate_fp_performance(self, test_indices_dict = None, model_names = None, tags = None):
+    """Evaluates the performance of a model on known false positives in detail. Works for 2 class and 3 class models."""
+
+    # If tag is specified, only run for given tag
+    if (not tags is None) and (model_names is None):
+      models = []
+      for tag in tags:
+        models += self.tags[tag]
+    else:
+      models = model_names
  
     # Perform analysis on all models and return incorrect indices
     incorrect_indices = {}
@@ -422,12 +490,13 @@ class ML_QuIC:
       incorrect_preds_fp = len(preds_fp) - correct_preds_fp
       print('False Positives Account for {:.2f}% of total misclassifications.'.format(100 * (incorrect_preds_fp / incorrect_preds)))
 
-      # Evaluate nature of FPs that were misclassified
+      ## Evaluate nature of FPs that were misclassified
       ttt = np.array(self.analysis_dataset['TimeToThreshold'])[test_indices][y_test == 1]
       raf = np.array(self.analysis_dataset['RAF'])[test_indices][y_test == 1]
       mpr = np.array(self.analysis_dataset['MPR'])[test_indices][y_test == 1]
       ms = np.array(self.analysis_dataset['MS'])[test_indices][y_test == 1]
 
+      # Separate statistics by prediction
       ttt_mis = np.mean(ttt[preds_fp >= 0.5])
       ttt_cor = np.mean(ttt[preds_fp < 0.5])
       raf_mis = np.mean(raf[preds_fp >= 0.5])
@@ -437,6 +506,7 @@ class ML_QuIC:
       ms_mis = np.mean(ms[preds_fp >= 0.5])
       ms_cor = np.mean(ms[preds_fp < 0.5])
 
+      # Output statistics to user for evaluation for each model
       print('Misclassified FP Characteristics:')
       print('Average Time to Threshold: {}'.format(ttt_mis))
       print('Average RAF: {}'.format(raf_mis))
@@ -451,6 +521,7 @@ class ML_QuIC:
       
       incorrect_indices[model] = test_indices[preds != y_test_binary]
 
+    # Print positive curve statistics to compare to false positives
     print('-------- Positive Characteristics for Reference --------')
     pos = self.analysis_dataset.iloc[(self.get_numpy_dataset('labels') == 2)] # Positive analysis dataset
     print('Time To Threshold:')
@@ -462,10 +533,8 @@ class ML_QuIC:
     print('MS:')
     print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'MS'].min(), pos.loc[:, 'MS'].mean(), pos.loc[:, 'MS'].max()))
     
-
     return incorrect_indices
     
-
   def get_model_plots(self, model_names = None, tags = None):
     """Get plots for models according to their kinds and tags"""
 

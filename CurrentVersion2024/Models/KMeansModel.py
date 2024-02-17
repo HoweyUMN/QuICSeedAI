@@ -9,19 +9,20 @@ class KMeansModel:
 
     def __init__(self, n_clusters = 2, random_state = 7):
         self.model = KMeans(n_clusters=n_clusters, random_state=random_state)
-        self.pca = PCA(n_components=2)
-        # self.scaler = StandardScaler()
+        self.pca = PCA(n_components=4)
+        self.scaler = StandardScaler()
 
     def fit(self, x = None, y = None):
         x = self.pca.fit_transform(x)
-        # x = self.scaler.fit_transform(x)
+        x = self.scaler.fit_transform(x)
+        
         self.model.fit(x)
 
     
     def predict(self, data, binary = True):
         """Binary is unimplemented because KMeans returns true binary output"""
         data = self.pca.transform(data)
-        # data = self.scaler.transform(data)
+        data = self.scaler.transform(data)
         preds = self.model.predict(data)
         max = np.max(preds)
         preds = np.array(preds == max, dtype=int) # Fix an issue where KMeans picks weird labels

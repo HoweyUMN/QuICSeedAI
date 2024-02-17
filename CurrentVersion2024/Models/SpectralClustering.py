@@ -5,12 +5,12 @@ import numpy as np
 
 class SpectralClustering:
 
-    def __init__(self, n_clusters = 2, n_vars = 2):
+    def __init__(self, n_clusters = 2, n_vars = 4):
         """Creates the model of a specified type to be the underlying model"""
         self.model = SC(n_clusters=n_clusters, affinity='nearest_neighbors', assign_labels='discretize', n_jobs=12)
         self.labels = []
         self.learned_data = np.zeros(1)
-        self.pca = PCA(n_components=min(n_vars, 8))
+        # self.pca = PCA(n_components=min(n_vars, 8))
 
     def fit(self, x = None, y = None):
         """Acts as an interface for the underlying model's fit method, converting standardized data
@@ -27,7 +27,7 @@ class SpectralClustering:
             return self.labels
 
         # Get the predictions
-        data = self.pca.fit_transform(data)
+        # data = self.pca.fit_transform(data)
         return self.model.fit_predict(data)
 
     def get_scores(self, data, true):

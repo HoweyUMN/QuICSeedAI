@@ -413,8 +413,11 @@ class ML_QuIC:
         test_df = self.analysis_dataset.iloc[test_indices]
         
       # Append to dataset for easier function
-      test_df['Predictions'] = self.models[model].predict(self.get_numpy_dataset('raw')[test_indices], binary = True)
-      test_df['True'] = self.get_numpy_dataset('labels')[test_indices]
+      preds_data = self.models[model].predict(self.get_numpy_dataset('raw')[test_indices], binary = True)
+      test_df['Predictions'] = preds_data
+      test_data = self.get_numpy_dataset('labels')[test_indices] # Required to avoid a useless error
+      test_df['True'] = test_data
+      test_df = test_df.iloc[test_indices]
       
       # Remove controls from dataset for better performance
       test_df = test_df[~test_df['content_replicate'].str.contains('pos', na = False)]

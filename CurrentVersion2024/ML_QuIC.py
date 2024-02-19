@@ -602,8 +602,8 @@ class ML_QuIC:
       elif plot_category == 'Supervised'.lower():
         fig, ax = self._supervised_plots(y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r'])
 
-      # Show plots that were generated for this model
-      plt.show()
+      # Save plots that were generated for this model
+      plt.savefig('./Figures/' + model + '_' + self.model_dtype[model] + '.png', bbox_inches = 'tight')
 
   def _supervised_plots(self, y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r']):
     """Plot model outcomes for generic supervised models"""

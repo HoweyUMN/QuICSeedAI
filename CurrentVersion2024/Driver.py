@@ -16,7 +16,7 @@ RANDOM_SEED = 7
 ml_quic = ML_QuIC.ML_QuIC()
 ml_quic.import_dataset(data_dir=DATA_DIR);
 
-### Add KMeans to the list of models to test
+## Add KMeans to the list of models to test
 from Models import KMeansModel
 ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 3), model_name='KMeans', data_type='raw', tag='Unsupervised')
 ml_quic.separate_train_test(model_names=['KMeans'], train_type=3)
@@ -36,7 +36,7 @@ ml_quic.evaluate_fp_performance(tags=['Unsupervised'])
 ml_quic.get_model_plots(tags=['Unsupervised'])
 
 #%%
-### MLP
+## MLP
 from Models import MLP
 imp.reload(MLP)
 
@@ -80,7 +80,7 @@ ml_quic.separate_train_test(model_names=['KMeans'], train_type=3)
 #%%
 ### Add Spectral Clustering
 from Models import SpectralClustering
-ml_quic.add_model(SpectralClustering.SpectralClustering(n_clusters = 2), model_name='Spectral', data_type='analysis', tag='Unsupervised')
+ml_quic.add_model(SpectralClustering.SpectralClustering(n_clusters = 3), model_name='Spectral', data_type='analysis', tag='Unsupervised')
 ml_quic.separate_train_test(model_names=['Spectral'], train_type=3)
 
 #%%

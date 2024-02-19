@@ -626,7 +626,9 @@ class ML_QuIC:
             preds_neg.append(y_predicted)
 
       # Plot confusion matrix
-      ax[0, 0].set_title('Binary Confusion Matrix')
+      dtype = 'Raw' if self.model_dtype[model] == 'raw' else 'Feature Extracted'
+      
+      ax[0, 0].set_title(model + ' ' + dtype + ' Confusion Matrix')
       ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=(y_pred >= 0.5), ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'])
 
       # Violin plot on the classificatoin distributions
@@ -708,8 +710,12 @@ class ML_QuIC:
     for i,data in enumerate(ds):
       ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_pred[i]])
 
+    # Ensures labels picked by unsupervised model are in appropriate ranges
+    y_pred = y_pred % 3
     # Confusion Matrix plot
-    ax[0, 1].set_title('Confusion Matrix')
+    dtype = 'Raw' if self.model_dtype[model] == 'raw' else 'Feature Extracted'
+      
+    ax[0, 1].set_title(model + ' ' + dtype + ' Confusion Matrix')
     if np.max(y_pred) > 1:
       y_cm = np.array(np.rint(y_true) == 2, dtype = int)
       y_cm_pred = np.array(np.rint(y_pred) == 2, dtype=int)

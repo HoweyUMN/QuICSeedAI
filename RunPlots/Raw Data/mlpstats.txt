@@ -1,0 +1,226 @@
+MLP:
+              precision    recall  f1-score   support
+
+         neg       1.00      0.98      0.99       758
+         pos       0.87      1.00      0.93       123
+
+    accuracy                           0.98       881
+   macro avg       0.94      0.99      0.96       881
+weighted avg       0.98      0.98      0.98       881
+
+SVM:
+              precision    recall  f1-score   support
+
+         neg       0.99      0.98      0.99       758
+         pos       0.91      0.96      0.93       123
+
+    accuracy                           0.98       881
+   macro avg       0.95      0.97      0.96       881
+weighted avg       0.98      0.98      0.98       881
+
+-------- Results on False Positives for MLP --------
+28/28 [==============================] - 0s 704us/step
+Accuracy on False Positives: 0.2631578947368421
+False Positives Account for 77.78% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 34.5
+Average RAF: 0.03314432357142857
+Average MPR: 6.571550919142857
+Average MS: 592.8928571428571
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 39.3
+Average RAF: 0.0257574692
+Average MPR: 2.4939684636
+Average MS: 76.45
+
+-------- Positive Characteristics for Reference --------
+Time To Threshold:
+        Min: 4.5, Average: 24.424414768263944, Max: 48.0
+RAF:
+        Min: 0.020833333, Average: 0.048363688274941086, Max: 0.222222222
+MPR:
+        Min: 1.241918665, Average: 10.765146606306365, Max: 56.55471698
+MS:
+        Min: 48.75, Average: 841.158483896308, Max: 5967.75
+
+KMeans:
+              precision    recall  f1-score   support
+
+         neg       0.87      1.00      0.93      7539
+         pos       0.90      0.12      0.21      1273
+
+    accuracy                           0.87      8812
+   macro avg       0.89      0.56      0.57      8812
+weighted avg       0.87      0.87      0.82      8812
+
+Spectral:
+              precision    recall  f1-score   support
+
+         neg       1.00      0.91      0.95      7539
+         pos       0.64      0.98      0.77      1273
+
+    accuracy                           0.92      8812
+   macro avg       0.82      0.94      0.86      8812
+weighted avg       0.94      0.92      0.92      8812
+
+-------- Results on False Positives for KMeans --------
+Accuracy on False Positives: 0.9393939393939394
+False Positives Account for 1.40% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 15.421875
+Average RAF: 0.0845702955625
+Average MPR: 28.769162606874996
+Average MS: 2822.796875
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 36.112177419354836
+Average RAF: 0.03080190362903226
+Average MPR: 7.006931452891129
+Average MS: 507.7429435483871
+-------- Results on False Positives for Spectral --------
+Accuracy on False Positives: 0.9772727272727273
+False Positives Account for 0.07% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 45.875
+Average RAF: 0.021814566500000004
+Average MPR: 6.474245722666666
+Average MS: 296.0833333333333
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 34.60201550387597
+Average RAF: 0.0343453853875969
+Average MPR: 8.368915223608527
+Average MS: 656.234496124031
+-------- Positive Characteristics for Reference --------
+Time To Threshold:
+        Min: 4.5, Average: 24.424414768263944, Max: 48.0
+RAF:
+        Min: 0.020833333, Average: 0.048363688274941086, Max: 0.222222222
+MPR:
+        Min: 1.241918665, Average: 10.765146606306365, Max: 56.55471698
+MS:
+        Min: 48.75, Average: 841.158483896308, Max: 5967.75
+2024-02-13 19:23:41.329579: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX AVX2
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2024-02-13 19:23:42.063053: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1616] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 5492 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3060 Ti, pci bus id: 0000:01:00.0, compute capability: 8.6
+2024-02-13 19:23:43.636476: I tensorflow/stream_executor/cuda/cuda_blas.cc:1614] TensorFloat-32 will be used for the matrix multiplication. This will only be logged once.
+28/28 [==============================] - 0s 797us/step
+MLP:
+              precision    recall  f1-score   support
+
+         neg       1.00      0.98      0.99       746
+         pos       0.89      0.98      0.93       135
+
+    accuracy                           0.98       881
+   macro avg       0.94      0.98      0.96       881
+weighted avg       0.98      0.98      0.98       881
+
+SVM:
+              precision    recall  f1-score   support
+
+         neg       0.99      0.98      0.98       746
+         pos       0.88      0.96      0.91       135
+
+    accuracy                           0.97       881
+   macro avg       0.93      0.97      0.95       881
+weighted avg       0.97      0.97      0.97       881
+
+-------- Results on False Positives for MLP --------
+28/28 [==============================] - 0s 945us/step
+Accuracy on False Positives: 0.22727272727272727
+False Positives Account for 85.00% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 36.61764705882353
+Average RAF: 0.028404948176470584
+Average MPR: 6.69618450835294
+Average MS: 501.4117647058824
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 30.3
+Average RAF: 0.0686116534
+Average MPR: 5.974182359399999
+Average MS: 603.8
+-------- Results on False Positives for SVM --------
+Accuracy on False Positives: 0.22727272727272727
+False Positives Account for 70.83% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 34.19117647058823
+Average RAF: 0.04019108341176471
+Average MPR: 7.535954234235294
+Average MS: 621.1470588235294
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 38.55
+Average RAF: 0.0285387936
+Average MPR: 3.1189652914
+Average MS: 196.7
+-------- Positive Characteristics for Reference --------
+Time To Threshold:
+        Min: 4.5, Average: 24.424414768263944, Max: 48.0
+RAF:
+        Min: 0.020833333, Average: 0.048363688274941086, Max: 0.222222222
+MPR:
+        Min: 1.241918665, Average: 10.765146606306365, Max: 56.55471698
+MS:
+        Min: 48.75, Average: 841.158483896308, Max: 5967.75
+28/28 [==============================] - 0s 1ms/step
+Loading Data from ../Data/BigAnalysis
+KMeans:
+              precision    recall  f1-score   support
+
+         neg       0.93      0.99      0.96      7539
+         pos       0.87      0.59      0.70      1273
+
+    accuracy                           0.93      8812
+   macro avg       0.90      0.79      0.83      8812
+weighted avg       0.93      0.93      0.92      8812
+
+C:\Users\kyleh\anaconda3\envs\tf-keras-gpu\lib\site-packages\sklearn\manifold\_spectral_embedding.py:259: UserWarning: Graph is not fully connected, spectral embedding may not work as expected.
+  warnings.warn(
+Spectral:
+              precision    recall  f1-score   support
+
+         neg       1.00      0.61      0.76      7539
+         pos       0.30      1.00      0.46      1273
+
+    accuracy                           0.67      8812
+   macro avg       0.65      0.80      0.61      8812
+weighted avg       0.90      0.67      0.71      8812
+
+-------- Results on False Positives for KMeans --------
+Accuracy on False Positives: 0.5757575757575758
+False Positives Account for 17.67% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 34.01482142857143
+Average RAF: 0.033240701017857144
+Average MPR: 8.606184262651785
+Average MS: 743.4508928571429
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 35.47967105263158
+Average RAF: 0.03466472575657895
+Average MPR: 8.11929581980263
+Average MS: 577.7532894736842
+-------- Results on False Positives for Spectral --------
+C:\Users\kyleh\anaconda3\envs\tf-keras-gpu\lib\site-packages\sklearn\manifold\_spectral_embedding.py:259: UserWarning: Graph is not fully connected, spectral embedding may not work as expected.
+  warnings.warn(
+Accuracy on False Positives: 1.0
+False Positives Account for 0.00% of total misclassifications.
+C:\Users\kyleh\anaconda3\envs\tf-keras-gpu\lib\site-packages\numpy\core\fromnumeric.py:3504: RuntimeWarning: Mean of empty slice.
+  return _methods._mean(a, axis=axis, dtype=dtype,
+C:\Users\kyleh\anaconda3\envs\tf-keras-gpu\lib\site-packages\numpy\core\_methods.py:129: RuntimeWarning: invalid value encountered in scalar divide
+  ret = ret.dtype.type(ret / rcount)
+Misclassified FP Characteristics:
+Average Time to Threshold: nan
+Average RAF: nan
+Average MPR: nan
+Average MS: nan
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 34.8582196969697
+Average RAF: 0.03406059404924243
+Average MPR: 8.325854553132576
+Average MS: 648.0492424242424
+-------- Positive Characteristics for Reference --------
+Time To Threshold:
+        Min: 4.5, Average: 24.424414768263944, Max: 48.0
+RAF:
+        Min: 0.020833333, Average: 0.048363688274941086, Max: 0.222222222
+MPR:
+        Min: 1.241918665, Average: 10.765146606306365, Max: 56.55471698
+MS:
+        Min: 48.75, Average: 841.158483896308, Max: 5967.75

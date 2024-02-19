@@ -10,7 +10,7 @@ class SVM:
     def __init__(self, kernel = 'rbf', degree = 3, random_state = 7, ):
         self.model = SVC(kernel=kernel, degree = degree, random_state=random_state)
         self.scaler = StandardScaler()
-        self.pca = PCA(n_components=2)
+        self.pca = PCA(n_components=4)
 
     def fit(self, x = None, y = None):
         x = self.pca.fit_transform(x)

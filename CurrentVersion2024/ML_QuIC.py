@@ -464,8 +464,7 @@ class ML_QuIC:
             correct_preds += 1
             
       print(correct_by_replicate)
-      print(correct_preds / len(replicates))
-            
+      print(correct_preds / len(replicates))      
         
   def evaluate_fp_performance(self, test_indices_dict = None, model_names = None, tags = None):
     """Evaluates the performance of a model on known false positives in detail. Works for 2 class and 3 class models."""
@@ -544,6 +543,23 @@ class ML_QuIC:
       print('Average MS: {}'.format(ms_cor))
       
       incorrect_indices[model] = test_indices[preds != y_test_binary]
+      
+       # Plot some examples
+      fig, ax = plt.subplots(2, 2)
+      fig.tight_layout(pad=3.0)
+      fig.suptitle('Misclassified False Positives for ' + model)
+      missed_fp_indices = test_indices[y_test == 1]
+      missed_fp_indices = missed_fp_indices[preds_fp == 1] # FP classified as Pos
+      
+      if len(missed_fp_indices) < 4: 
+        print('Insufficient missed false positives to plot')
+        continue
+      for i in range(4):
+        ax[i%2, int(i / 2)].plot(np.arange(self.get_num_timesteps_raw()), self.get_numpy_dataset('raw')[missed_fp_indices[i]], c = 'k')
+        ax[i%2, int(i/2)].set_xlabel('Timestep (45 minute intervals)')
+        ax[i%2, int(i/2)].set_ylabel('Fluorescence Reading')
+      plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', bbox_inches = 'tight', transparent = False, dpi = 500)
+      plt.show()
 
     # Print positive curve statistics to compare to false positives
     print('-------- Positive Characteristics for Reference --------')
@@ -556,6 +572,14 @@ class ML_QuIC:
     print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'MPR'].min(), pos.loc[:, 'MPR'].mean(), pos.loc[:, 'MPR'].max()))
     print('MS:')
     print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'MS'].min(), pos.loc[:, 'MS'].mean(), pos.loc[:, 'MS'].max()))
+    
+    pos_sample = self.get_numpy_dataset('raw')[self.get_numpy_dataset('labels') == 2]
+    
+    plt.title('Positive Reference Sample')
+    plt.plot(np.arange(self.get_num_timesteps_raw()), pos_sample[1], c = 'k')
+    plt.xlabel('Timestep (45 minute intervals)')
+    plt.ylabel('Fluorescence Reading')
+    plt.savefig('Figures/positive_sample.png', dpi = 500)
     
     return incorrect_indices
     
@@ -603,7 +627,7 @@ class ML_QuIC:
         fig, ax = self._supervised_plots(y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r'])
 
       # Save plots that were generated for this model
-      plt.savefig('./Figures/' + model + '_' + self.model_dtype[model] + '.png', bbox_inches = 'tight')
+      plt.savefig('./Figures/' + model + '_' + self.model_dtype[model] + '.png', bbox_inches = 'tight', transparent = False, dpi = 500)
 
   def _supervised_plots(self, y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r']):
     """Plot model outcomes for generic supervised models"""
@@ -630,6 +654,10 @@ class ML_QuIC:
       
       ax[0, 0].set_title(model + ' ' + dtype + ' Confusion Matrix')
       ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=(y_pred >= 0.5), ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'])
+      
+      cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=(y_pred >= 0.5), normalize='true', display_labels=['Negative', 'Positive']).figure_
+      cm_fig.suptitle(model + ' ' + dtype + ' Confusion Matrix')
+      cm_fig.savefig('Figures/' + model + ' ' + dtype + ' Confusion Matrix.png')
 
       # Violin plot on the classificatoin distributions
       ax[0, 1].set_title('Classification Distribution')
@@ -722,7 +750,14 @@ class ML_QuIC:
     else:
       y_cm_pred = y_pred 
       y_cm = y_true
+      
+    # Ensuring labels are not backwards
+    if len(y_cm_pred[y_cm_pred == y_cm]) < 0.5 * len(y_cm):
+      y_cm_pred = 1 - y_cm_pred
     ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
+    cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, normalize='true', display_labels=['Negative', 'Positive']).figure_
+    cm_fig.suptitle(model + ' ' + dtype + ' Confusion Matrix')
+    cm_fig.savefig('Figures/' + model + ' ' + dtype + ' Confusion Matrix.png')
     
     ax[0, 0].set_title('Classification Clusters')
     datapoints = self.get_numpy_dataset('analysis')

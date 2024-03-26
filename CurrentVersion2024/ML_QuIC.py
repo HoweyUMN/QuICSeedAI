@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import KernelPCA
 import multiprocessing
 import seaborn as sns
-from sklearn.metrics import RocCurveDisplay, roc_auc_score
+from sklearn.metrics import RocCurveDisplay, roc_auc_score, roc_curve
 import keras
 
 # base = importr('base')
@@ -545,19 +545,19 @@ class ML_QuIC:
       incorrect_indices[model] = test_indices[preds != y_test_binary]
       
        # Plot some examples
-      fig, ax = plt.subplots(2, 2)
+      fig, ax = plt.subplots(1, 2)
       fig.tight_layout(pad=3.0)
       fig.suptitle('Misclassified False Positives for ' + model)
       missed_fp_indices = test_indices[y_test == 1]
       missed_fp_indices = missed_fp_indices[preds_fp == 1] # FP classified as Pos
       
-      if len(missed_fp_indices) < 4: 
+      if len(missed_fp_indices) < 2: 
         print('Insufficient missed false positives to plot')
         continue
-      for i in range(4):
-        ax[i%2, int(i / 2)].plot(np.arange(self.get_num_timesteps_raw()), self.get_numpy_dataset('raw')[missed_fp_indices[i]], c = 'k')
-        ax[i%2, int(i/2)].set_xlabel('Timestep (45 minute intervals)')
-        ax[i%2, int(i/2)].set_ylabel('Fluorescence Reading')
+      for i in range(2):
+        ax[int(i / 2), int(i % 2)].plot(np.arange(self.get_num_timesteps_raw()), self.get_numpy_dataset('raw')[missed_fp_indices[i]], c = 'k')
+        ax[int(i / 2), int(i % 2)].set_xlabel('Timestep (45 minute intervals)')
+        ax[int(i / 2), int(i % 2)].set_ylabel('Fluorescence Reading')
       plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', bbox_inches = 'tight', transparent = False, dpi = 500)
       plt.show()
 
@@ -752,8 +752,12 @@ class ML_QuIC:
       y_cm = y_true
       
     # Ensuring labels are not backwards
-    if len(y_cm_pred[y_cm_pred == y_cm]) < 0.5 * len(y_cm):
-      y_cm_pred = 1 - y_cm_pred
+    pos_corr = len(np.where(np.logical_and(y_cm_pred == 1, y_cm == 1))) / len(y_cm == 1)
+    neg_corr = len(np.where(np.logical_and(y_cm_pred == 0, y_cm == 0))) / len(y_cm == 0)
+    
+    # If over half of each label are backwards, we flip
+    y_cm_pred = y_cm_pred if (pos_corr + neg_corr) < 1 else 1 - y_cm_pred
+    
     ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
     cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, normalize='true', display_labels=['Negative', 'Positive']).figure_
     cm_fig.suptitle(model + ' ' + dtype + ' Confusion Matrix')
@@ -773,3 +777,61 @@ class ML_QuIC:
         ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
 
     return fig, ax
+  
+  def get_group_plots_unsupervised(self, model_names = None, tags = None):
+      """Get plots for models according to their kinds and tags and groups together. Made for blocks of 4 unsupervised, 2 supervised"""
+
+      # If unspecified, get plots for all models
+      models = []
+      if model_names is None:
+        models = self.models.keys()
+      else: models = model_names
+
+      # Only get plots for specified model groups by tag
+      if (not tags is None) and (model_names is None):
+        models = []
+        for tag in tags:
+          models += self.tags[tag]
+
+      # Predictions for all models in list
+      preds = self.get_model_predictions(model_names=models)
+      
+      # Define plot structure
+      cm_fig, cm_ax = plt.subplots(2, 2)
+      roc_fig, roc_ax = plt.subplots(1, 1)
+      roc_ax.set_xlabel('False Positive Rate')
+      roc_ax.set_ylabel('True Positive Rate')
+    
+      # Set titles for figures   
+      roc_fig.suptitle('ROC Curves for Unsupervised Models')
+      cm_fig.suptitle('Unsupervised Models Confusion Matrices')  
+      
+      # Unsupervised block handled differently
+      for i, model in enumerate(models):
+            
+        # Select predictions and true labels for this model
+        y_pred = preds[model]
+        y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
+                    
+        # Convert all labels to a binary format
+        if np.max(y_pred) > 1:
+          y_cm = np.array(np.rint(y_true) == 2, dtype = int)
+          y_cm_pred = np.array(np.rint(y_pred) == 2, dtype=int)
+        else:
+          y_cm_pred = y_pred 
+          y_cm = y_true = np.asarray(y_true == 2, dtype=int)
+            
+        # Ensuring labels are not backwards
+        pos_corr = len(np.where(np.logical_and(y_cm_pred == 1, y_cm == 1))) / len(y_cm == 1)
+        neg_corr = len(np.where(np.logical_and(y_cm_pred == 0, y_cm == 0))) / len(y_cm == 0)
+          
+        # If over half of each label are backwards, we flip
+        y_cm_pred = y_cm_pred if (pos_corr + neg_corr) / (len(y_true)) < 0.5 else 1 - y_cm_pred
+
+        # Generate the ROC curve and add to axis
+        fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
+        auc = roc_auc_score(y_cm, y_cm_pred)
+        roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
+        roc_ax.legend(loc=0)
+        
+        ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2, int(i / 2)], normalize='true', display_labels=['Negative', 'Positive'])

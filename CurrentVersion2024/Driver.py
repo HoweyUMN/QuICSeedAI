@@ -35,8 +35,8 @@ from Models import MLP
 imp.reload(MLP)
 
 # Add MLP to list of supervised models
-ml_quic.add_model(MLP.MLP(NDIM = ml_quic.get_num_timesteps Raww(), 
-                          file_path='../SavedModels/Raw/'
+ml_quic.add_model(MLP.MLP(NDIM = ml_quic.get_num_timesteps_raw(), 
+                          file_path=None
                           ), model_name = 'MLP Raw', data_type = 'raw', tag='Supervised')
 
 #%%
@@ -74,6 +74,7 @@ ml_quic.evaluate_fp_performance(tags=['Unsupervised'])
 ml_quic.get_model_plots(tags=['Unsupervised'])
 
 #%%
+### Get the group plots to use for side by side comparison
 ml_quic.get_group_plots_unsupervised(tags = ['Unsupervised'])
 
 # %%
@@ -94,4 +95,6 @@ ml_quic.train_models(tags = ['Supervised'])
 ml_quic.get_model_scores(tags = ['Supervised'])
 ml_quic.evaluate_fp_performance(tags=['Supervised'])
 ml_quic.get_model_plots(tags=['Supervised'])
+#TODO - Add one for SVM
+
 # %%

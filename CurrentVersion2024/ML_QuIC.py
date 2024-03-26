@@ -555,9 +555,9 @@ class ML_QuIC:
         print('Insufficient missed false positives to plot')
         continue
       for i in range(2):
-        ax[int(i / 2), int(i % 2)].plot(np.arange(self.get_num_timesteps_raw()), self.get_numpy_dataset('raw')[missed_fp_indices[i]], c = 'k')
-        ax[int(i / 2), int(i % 2)].set_xlabel('Timestep (45 minute intervals)')
-        ax[int(i / 2), int(i % 2)].set_ylabel('Fluorescence Reading')
+        ax[int(i % 2)].plot(np.arange(self.get_num_timesteps_raw()), self.get_numpy_dataset('raw')[missed_fp_indices[i]], c = 'k')
+        ax[int(i % 2)].set_xlabel('Timestep (45 minute intervals)')
+        ax[int(i % 2)].set_ylabel('Fluorescence Reading')
       plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', bbox_inches = 'tight', transparent = False, dpi = 500)
       plt.show()
 
@@ -826,7 +826,7 @@ class ML_QuIC:
         neg_corr = len(np.where(np.logical_and(y_cm_pred == 0, y_cm == 0))) / len(y_cm == 0)
           
         # If over half of each label are backwards, we flip
-        y_cm_pred = y_cm_pred if (pos_corr + neg_corr) / (len(y_true)) < 0.5 else 1 - y_cm_pred
+        y_cm_pred = y_cm_pred if (pos_corr + neg_corr) < (len(y_true) / 2) else 1 - y_cm_pred
 
         # Generate the ROC curve and add to axis
         fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
@@ -834,4 +834,8 @@ class ML_QuIC:
         roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
         roc_ax.legend(loc=0)
         
-        ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2, int(i / 2)], normalize='true', display_labels=['Negative', 'Positive'])
+        cm_ax[i % 2, int(i / 2)].set_title(model)
+        ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2, int(i / 2)], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
+  
+  def get_group_plots_supervised(self, model_names = None, tags = None):
+      pass

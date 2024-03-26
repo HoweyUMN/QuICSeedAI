@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import re
 
 # Import the data for separation
 raw = pd.read_csv('./Data/BigAnalysisSource/combined_raw.csv')
@@ -10,14 +11,20 @@ replicate = pd.read_csv('./Data/BigAnalysisSource/combined_replicate.csv')
 # Import the list of samples to withhold
 unused_samples = pd.read_csv('./Data/BigAnalysisSource/BigAnalysis-Excluded.csv')
 
-mask = []
-for sample in analysis.content_replicate:
-    mask.append(sample in unused_samples['Sample'])
-mask = np.array(mask)
+mask = np.zeros(len(analysis))
+for index, sample in unused_samples.iterrows():
+    search_sample = ('^' + sample['Sample'] + '(x|_).*$')
+    for index, sample in analysis.iterrows():
+        if re.match(search_sample, sample['content_replicate']):
+            mask[index] = 1
+    
+mask = mask.astype(bool)
+if not (True in mask):
+    raise Exception('AH')
 
 mask_replicate = []
 for sample in replicate.Sample:
-    mask_replicate.append(sample in unused_samples['Sample'])
+    mask_replicate.append(unused_samples['Sample'].str.contains(sample))
 
 
 # Separate wells into G (disagreement) and G/GC (Verified)

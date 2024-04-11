@@ -17,6 +17,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import classification_report, f1_score, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
+plt.rcParams.update({'font.size': 24})
 from sklearn.decomposition import KernelPCA
 import multiprocessing
 import seaborn as sns
@@ -79,6 +80,9 @@ class ML_QuIC:
 
     self.plots = {}
     """A return of the plots for later use and examination stored as a dictionary for each model"""
+    
+    self.fp_plots = {}
+    """Stores false positive plots for unified plotting"""
       
   def import_dataset(self, data_dir = './Data/', folders = None):
     """Takes in the directory data is stored in and the selected folder names 
@@ -497,12 +501,25 @@ class ML_QuIC:
 
       # Get model predictions
       preds = self.models[model].predict(x_test, binary=True)
+      y_test_binary = np.array(y_test == 2)
+      
+      # Ensuring labels are not backwards
+      pos_corr = 0
+      neg_corr = 0
+      for j in range(len(y_test_binary)):
+        if y_test_binary[j] == 1 and preds[j] == 1:
+          pos_corr += 1
+        elif y_test_binary[j] == 0 and preds[j] == 0:
+          neg_corr += 1
+    
+      # If over half of each label are backwards, we flip
+      preds = preds if (pos_corr + neg_corr) < len(y_test_binary) / 2 else 1 - preds
+      preds = 1 - preds
       preds_fp = preds[y_test == 1]
 
-      # Case where classifier has a binary negative or positive output
+      # Case where classifier has a nonbinary negative or positive output
       if np.max(preds) > 1:
         preds_fp = np.array(preds_fp >= 1.5)
-      y_test_binary = np.array(y_test == 2)
       
       # Get basic metrics on FP data
       correct_preds_fp = len(preds_fp[preds_fp < 0.5])
@@ -545,21 +562,21 @@ class ML_QuIC:
       incorrect_indices[model] = test_indices[preds != y_test_binary]
       
        # Plot some examples
-      fig, ax = plt.subplots(1, 2)
+      fig, ax = plt.subplots(1, 1)
       fig.tight_layout(pad=3.0)
       fig.suptitle('Misclassified False Positives for ' + model)
       missed_fp_indices = test_indices[y_test == 1]
       missed_fp_indices = missed_fp_indices[preds_fp == 1] # FP classified as Pos
       
-      if len(missed_fp_indices) < 2: 
-        print('Insufficient missed false positives to plot')
-        continue
-      for i in range(2):
-        ax[int(i % 2)].plot(np.arange(self.get_num_timesteps_raw()), self.get_numpy_dataset('raw')[missed_fp_indices[i]], c = 'k')
-        ax[int(i % 2)].set_xlabel('Timestep (45 minute intervals)')
-        ax[int(i % 2)].set_ylabel('Fluorescence Reading')
-      plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', bbox_inches = 'tight', transparent = False, dpi = 500)
+      if len(missed_fp_indices) < 1: 
+        print('Insufficient missed false positives to plot, attempting replacement with missed positive sample')
+        missed_fp_indices = test_indices[np.logical_and(y_test_binary == 1, preds == 0)] 
+      ax.plot(np.arange(self.get_num_timesteps_raw()) * .75, self.get_numpy_dataset('raw')[missed_fp_indices[0]] / np.max(self.get_numpy_dataset('raw')[missed_fp_indices[0]]), c = 'k')
+      ax.set_xlabel('Hours')
+      ax.set_ylabel('Normalized Fluorescence Reading')
+      # plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', bbox_inches = 'tight', transparent = False, dpi = 500)
       plt.show()
+      self.fp_plots[model] = self.get_numpy_dataset('raw')[missed_fp_indices[np.random.randint(0, len(missed_fp_indices))]]
 
     # Print positive curve statistics to compare to false positives
     print('-------- Positive Characteristics for Reference --------')
@@ -572,14 +589,6 @@ class ML_QuIC:
     print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'MPR'].min(), pos.loc[:, 'MPR'].mean(), pos.loc[:, 'MPR'].max()))
     print('MS:')
     print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'MS'].min(), pos.loc[:, 'MS'].mean(), pos.loc[:, 'MS'].max()))
-    
-    pos_sample = self.get_numpy_dataset('raw')[self.get_numpy_dataset('labels') == 2]
-    
-    plt.title('Positive Reference Sample')
-    plt.plot(np.arange(self.get_num_timesteps_raw()), pos_sample[1], c = 'k')
-    plt.xlabel('Timestep (45 minute intervals)')
-    plt.ylabel('Fluorescence Reading')
-    plt.savefig('Figures/positive_sample.png', dpi = 500)
     
     return incorrect_indices
     
@@ -627,7 +636,7 @@ class ML_QuIC:
         fig, ax = self._supervised_plots(y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r'])
 
       # Save plots that were generated for this model
-      plt.savefig('./Figures/' + model + '_' + self.model_dtype[model] + '.png', bbox_inches = 'tight', transparent = False, dpi = 500)
+      # plt.savefig('./Figures/' + model + '_' + self.model_dtype[model] + '.png', bbox_inches = 'tight', transparent = False, dpi = 500)
 
   def _supervised_plots(self, y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r']):
     """Plot model outcomes for generic supervised models"""
@@ -657,7 +666,7 @@ class ML_QuIC:
       
       cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=(y_pred >= 0.5), normalize='true', display_labels=['Negative', 'Positive']).figure_
       cm_fig.suptitle(model + ' ' + dtype + ' Confusion Matrix')
-      cm_fig.savefig('Figures/' + model + ' ' + dtype + ' Confusion Matrix.png')
+      # cm_fig.savefig('Figures/' + model + ' ' + dtype + ' Confusion Matrix.png')
 
       # Violin plot on the classificatoin distributions
       ax[0, 1].set_title('Classification Distribution')
@@ -674,7 +683,7 @@ class ML_QuIC:
       ax[1, 1].set_title('Incorrectly Classified')
       for i,data in enumerate(ds):
         if y_pred[i] != y_true[i]:
-          ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
+          ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, data, c = color_map[y_true[i]])
 
     # Case 3 class classifier (-/FP/+)
     else:
@@ -714,7 +723,7 @@ class ML_QuIC:
       ax[1, 1].set_title('Incorrectly Classified')
       for i,data in enumerate(ds):
         if pred_binary[i] != y_binary[i]:
-          ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
+          ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, data, c = color_map[y_true[i]])
       
     return fig, ax
 
@@ -761,7 +770,7 @@ class ML_QuIC:
     ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
     cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, normalize='true', display_labels=['Negative', 'Positive']).figure_
     cm_fig.suptitle(model + ' ' + dtype + ' Confusion Matrix')
-    cm_fig.savefig('Figures/' + model + ' ' + dtype + ' Confusion Matrix.png')
+    # cm_fig.savefig('Figures/' + model + ' ' + dtype + ' Confusion Matrix.png')
     
     ax[0, 0].set_title('Classification Clusters')
     datapoints = self.get_numpy_dataset('analysis')
@@ -774,7 +783,7 @@ class ML_QuIC:
     ax[1, 1].set_title('Incorrectly Classified')
     for i,data in enumerate(ds):
       if y_pred[i] != y_true[i]:
-        ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_true[i]])
+        ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, data, c = color_map[y_true[i]])
 
     return fig, ax
   
@@ -807,7 +816,135 @@ class ML_QuIC:
       cm_fig.suptitle('Unsupervised Models Confusion Matrices')  
       
       # Unsupervised block handled differently
+      fp_plots_to_show = []
+      pos_correct_mask = []
+      neg_correct_mask = []
       for i, model in enumerate(models):
+            
+        # Select predictions and true labels for this model
+        y_pred = preds[model]
+        y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
+                    
+        # Convert all labels to a binary format       
+        y_cm = np.array(y_true == 2, dtype = int)
+        if np.max(y_pred) > 1:
+          y_cm_pred = np.array(y_pred == 2, dtype = int)
+        else:
+          y_cm_pred = y_pred
+        
+        # Ensuring labels are not backwards
+        pos_corr = 0
+        neg_corr = 0
+        this_pos_correct_mask = np.zeros(len(y_cm))
+        this_neg_correct_mask = np.zeros(len(y_cm))
+        for j in range(len(y_cm)):
+          if y_true[j] == 2 and y_cm_pred[j] == 1:
+            pos_corr += 1
+            this_pos_correct_mask[j] = 1
+          elif y_true[j] == 0 and y_cm_pred[j] == 0:
+            neg_corr += 1
+            this_neg_correct_mask[j] = 1
+            
+        pos_correct_mask.append(this_pos_correct_mask.astype(bool))
+        neg_correct_mask.append(this_neg_correct_mask.astype(bool))
+          
+        # If over half of each label are backwards, we flip
+        y_cm_pred = y_cm_pred if (pos_corr + neg_corr) < (len(y_true) / 2) else 1 - y_cm_pred
+        y_cm_pred = 1 - y_cm_pred
+
+        # Generate the ROC curve and add to axis
+        fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
+        auc = roc_auc_score(y_cm, y_cm_pred)
+        roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
+        roc_ax.legend(loc=0)
+        
+        cm_ax[i % 2, int(i / 2)].set_title(model)
+        ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2, int(i / 2)], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
+
+        # Get data for plotting fps and comparison with positive sample
+        fp_plots_to_show.append(self.fp_plots[model])
+      
+      cm_fig.tight_layout(pad = 2)
+      roc_fig.tight_layout(pad = 2)
+      cm_fig.savefig('Figures/Unsupervised CMs.png')
+      roc_fig.savefig('Figures/Unsupervised ROC.png')
+      
+      # Using last version of model here, should be the same indices ideally TODO - Enforce this?
+      samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
+      pos_samples = samples[y_cm == 1]
+      neg_samples = samples[y_cm == 0]
+      
+      # Create plot and collect axes
+      fig, ax = plt.subplots(2, 3)
+      fig.suptitle('Classification Comparisons')
+      for i, fp_ax in enumerate(fp_plots_to_show):
+        ax[i%2, 1 + int(i/2)].set_title(models[i])
+        ax[i%2, 1 + int(i/2)].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax / np.max(fp_ax), c = 'k')
+        ax[i%2, 1 + int(i/2)].set_xlabel('Hours')
+        ax[i%2, 1 + int(i/2)].set_ylabel('Normalized Fluorescence Reading')
+      
+      # Find a universal positive reference
+      pos_sample = None
+      for i in range(len(samples)):
+        if pos_correct_mask[0][i] and pos_correct_mask[1][i] and pos_correct_mask[2][i] and pos_correct_mask[3][i]:
+          pos_sample = samples[i]
+      
+      # Find a universal negative reference
+      for i in range(len(samples)):
+        if neg_correct_mask[0][i] and neg_correct_mask[1][i] and neg_correct_mask[2][i] and neg_correct_mask[3][i]:
+          neg_sample = samples[i]
+          
+      # If we can't find one of the references, we stop early
+      if pos_sample is None or neg_sample is None:
+        sample_type = 'positive' if pos_sample is None else 'negative'
+        raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
+      
+      ax[0, 0].set_title('Positive Reference Sample')
+      ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, pos_sample / np.max(pos_sample), c = 'k')
+      ax[0, 0].set_xlabel('Hours')
+      ax[0, 0].set_ylabel('Normalized Fluorescence Reading')
+      
+      ax[1, 0].set_title('Negative Reference Sample')
+      ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, neg_sample / np.max(neg_sample), c = 'k')
+      ax[1, 0].set_xlabel('Hours')
+      ax[1, 0].set_ylabel('Normalized Fluorescence Reading')
+      fig.tight_layout(pad = 2)
+      fig.savefig('Figures/Unsupervised Samples.png')
+      plt.show()
+  
+  def get_group_plots_supervised(self, model_names = None, tags = None):
+      # If unspecified, get plots for all models
+      models = []
+      if model_names is None:
+        models = self.models.keys()
+      else: models = model_names
+
+      # Only get plots for specified model groups by tag
+      if (not tags is None) and (model_names is None):
+        models = []
+        for tag in tags:
+          models += self.tags[tag]
+
+      # Predictions for all models in list
+      preds = self.get_model_predictions(model_names=models)
+      
+      # Define plot structure
+      cm_fig, cm_ax = plt.subplots(1, 2)
+      roc_fig, roc_ax = plt.subplots(1, 1)
+      roc_ax.set_xlabel('False Positive Rate')
+      roc_ax.set_ylabel('True Positive Rate')
+    
+      # Set titles for figures   
+      roc_fig.suptitle('ROC Curves for Supervised Models')
+      cm_fig.suptitle('Supervised Models Confusion Matrices')
+      
+      # Supervised block handled differently
+      fp_plots_to_show = []
+      pos_correct_mask = []
+      neg_correct_mask = []
+      for i, model in enumerate(models):
+        if model == 'MLP Raw':
+          continue
             
         # Select predictions and true labels for this model
         y_pred = preds[model]
@@ -820,13 +957,6 @@ class ML_QuIC:
         else:
           y_cm_pred = y_pred 
           y_cm = y_true = np.asarray(y_true == 2, dtype=int)
-            
-        # Ensuring labels are not backwards
-        pos_corr = len(np.where(np.logical_and(y_cm_pred == 1, y_cm == 1))) / len(y_cm == 1)
-        neg_corr = len(np.where(np.logical_and(y_cm_pred == 0, y_cm == 0))) / len(y_cm == 0)
-          
-        # If over half of each label are backwards, we flip
-        y_cm_pred = y_cm_pred if (pos_corr + neg_corr) < (len(y_true) / 2) else 1 - y_cm_pred
 
         # Generate the ROC curve and add to axis
         fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
@@ -834,8 +964,65 @@ class ML_QuIC:
         roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
         roc_ax.legend(loc=0)
         
-        cm_ax[i % 2, int(i / 2)].set_title(model)
-        ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2, int(i / 2)], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
-  
-  def get_group_plots_supervised(self, model_names = None, tags = None):
-      pass
+        cm_ax[i % 2].set_title(model)
+        ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
+        
+        # Get data for plotting fps and comparison with positive sample
+        if model != 'MLP Raw':
+          # Ensuring labels are not backwards
+          this_pos_correct_mask = np.zeros(len(y_cm))
+          this_neg_correct_mask = np.zeros(len(y_cm))
+          for j in range(len(y_cm)):
+            if y_cm[j] == 1 and y_cm_pred[j] == 1:
+              this_pos_correct_mask[j] = 1
+            elif y_cm[j] == 0 and y_cm_pred[j] == 0:
+              this_neg_correct_mask[j] = 1
+              
+          pos_correct_mask.append(this_pos_correct_mask.astype(bool))
+          neg_correct_mask.append(this_neg_correct_mask.astype(bool))
+       
+      cm_fig.tight_layout(pad = 2)
+      roc_fig.tight_layout(pad = 2)
+      cm_fig.savefig('Figures/Unsupervised CMs.png')
+      roc_fig.savefig('Figures/Unsupervised ROC.png')
+       
+      # Using last version of model here, should be the same indices ideally TODO - Enforce this?
+      samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
+      
+      # Create plot and collect axes
+      fig, ax = plt.subplots(2, 2)
+      fig.suptitle('Classification Comparisons')
+      for i, fp_ax in enumerate(fp_plots_to_show):
+        ax[i%2, 1].set_title(models[i])
+        ax[i%2, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
+        ax[i%2, 1].set_xlabel('Hours')
+        ax[i%2, 1].set_ylabel('Normalized Fluorescence Reading')
+      
+      # Find a universal positive reference
+      pos_sample = None
+      for i in range(len(samples)):
+        if pos_correct_mask[0][i] and pos_correct_mask[1][i]:
+          pos_sample = samples[i]
+      
+      # Find a universal negative reference
+      for i in range(len(samples)):
+        if neg_correct_mask[0][i] and neg_correct_mask[1][i]:
+          neg_sample = samples[i]
+          
+      # If we can't find one of the references, we stop early
+      if pos_sample is None or neg_sample is None:
+        sample_type = 'positive' if pos_sample is None else 'negative'
+        raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
+      
+      ax[0, 0].set_title('Positive Reference Sample')
+      ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample / np.max(pos_sample), c = 'k')
+      ax[0, 0].set_xlabel('Hours')
+      ax[0, 0].set_ylabel('Normalized Fluorescence Reading')
+      
+      ax[1, 0].set_title('Negative Reference Sample')
+      ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample / np.max(neg_sample), c = 'k')
+      ax[1, 0].set_xlabel('Hours')
+      ax[1, 0].set_ylabel('Normalized Fluorescence Reading')
+      fig.tight_layout(pad = 2)
+      fig.savefig('Figures/Unsupervised Samples.png')
+      plt.show()

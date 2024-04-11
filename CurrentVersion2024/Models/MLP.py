@@ -1,5 +1,6 @@
-import numpy as np
+import os
 import keras
+import numpy as np
 import tensorflow as tf
 from keras.layers import Dense, Input
 from keras import Model, regularizers
@@ -9,9 +10,20 @@ import pickle
 
 class MLP:
 
-    def __init__(self, NDIM, class_weight = None, file_path = None):
-        if file_path is None:
-            """Initializes a DNN and scaler which can be used in standardized training"""
+    def __init__(self, NDIM, class_weight = None, file_path = './', model_name = 'mlp'):
+        """Initializes a DNN and scaler which can be used in standardized training
+        Class weight is unimplemented with pretrained models"""
+        self.model_path = file_path + model_name + '.h5'
+        self.scaler_path = file_path + model_name + '_scaler.pkl'
+        self.pretrained = False
+        
+        if os.path.exists(self.model_path) and os.path.exists(self.scaler_path):
+            self.model = keras.models.load_model(self.model_path)
+            self.scaler = pickle.load(open(self.scaler_path, 'rb'))
+            self.class_weight = None
+            self.pretrained = True
+            
+        else: # Train new if can't find necessary components
             input_layer = Input(shape=NDIM)
             dense = Dense(NDIM, activation = 'relu')(input_layer)
             dense = Dense(NDIM, activation = 'relu')(dense)
@@ -21,12 +33,6 @@ class MLP:
             self.model = Model(input_layer, output)
             self.scaler = StandardScaler()
             self.class_weight = class_weight
-            self.file_path = 'NULL'
-        else:
-            self.model = keras.models.load_model(file_path + 'MLP.h5')
-            self.scaler = pickle.load(open(file_path + 'scaler.pkl', 'rb'))
-            self.class_weight = None
-            self.file_path = file_path
 
     def fit(self, learning_rate=1e-4, loss = 'categorical_crossentropy',
             x = None, y = None, batch_size = 128, epochs = 700, verbose = 0, callbacks = None, validation_split = 0.1,
@@ -35,7 +41,7 @@ class MLP:
             max_queue_size = 10, workers = 1, use_multiprocessing = True):
         """Acts as an interface for the underlying model's fit method, converting standardized data
         into a format which the MLP can recognize"""
-        if self.file_path == 'NULL':
+        if not self.pretrained:
             self.scaler.fit(x)
             x = self.scaler.transform(x)
             with open('../scaler.pkl', 'wb') as f:
@@ -72,7 +78,7 @@ class MLP:
                 use_multiprocessing,
             )
             
-            self.model.save('../MLP_New.h5')
+            self.model.save(self.model_path)
 
     def predict(self, data, binary = False):
         """Acts as an interface for the model's prediction method, performs scaling and

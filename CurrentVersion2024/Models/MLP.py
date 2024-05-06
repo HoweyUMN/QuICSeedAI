@@ -33,6 +33,9 @@ class MLP:
             self.model = Model(input_layer, output)
             self.scaler = StandardScaler()
             self.class_weight = class_weight
+            
+        print('\MLP Model Loaded:')
+        print(type(self.model))
 
     def fit(self, learning_rate=1e-4, loss = 'categorical_crossentropy',
             x = None, y = None, batch_size = 128, epochs = 700, verbose = 0, callbacks = None, validation_split = 0.1,

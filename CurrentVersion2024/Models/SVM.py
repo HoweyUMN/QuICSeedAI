@@ -24,6 +24,9 @@ class SVM:
             self.model = SVC(kernel=kernel, degree = degree, random_state=random_state)
             self.scaler = StandardScaler()
             self.pca = PCA(n_components=4)
+        
+        print('\nSVM Model Loaded:')
+        print(type(self.model))
 
     def fit(self, x = None, y = None):
         if not self.pretrained:

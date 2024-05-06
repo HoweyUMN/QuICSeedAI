@@ -2,6 +2,7 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import classification_report, f1_score
 from sklearn.preprocessing import StandardScaler
+import pickle
 import numpy as np
 import pickle
 import os
@@ -25,13 +26,25 @@ class KMeansModel:
             self.model = KMeans(n_clusters=n_clusters, random_state=random_state)
             self.pca = PCA(n_components=4)
             self.scaler = StandardScaler()
+            
+        print('\nKMeans Model Loaded:')
+        print(type(self.model))
 
-    def fit(self, x = None, y = None):
+    def fit(self, x = None, y = None):  
         if not self.pretrained:
             x = self.pca.fit_transform(x)
             x = self.scaler.fit_transform(x)
             
             self.model.fit(x)
+            
+            with open(self.model_path, 'wb') as f:
+                pickle.dump(self.model, f)
+                
+            with open(self.pca_path, 'wb') as f:
+                pickle.dump(self.pca, f)
+        
+            with open(self.scaler_path, 'wb') as f:
+                pickle.dump(self.scaler, f)
 
     
     def predict(self, data, labels, binary = True):

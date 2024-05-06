@@ -20,12 +20,11 @@ for index, sample in unused_samples.iterrows():
     
 mask = mask.astype(bool)
 if not (True in mask):
-    raise Exception('AH')
+    raise Exception('Failed to find any samples to keep')
 
 mask_replicate = []
 for sample in replicate.Sample:
     mask_replicate.append(unused_samples['Sample'].str.contains(sample))
-
 
 # Separate wells into G (disagreement) and G/GC (Verified)
 raw_separate = raw.iloc[mask]

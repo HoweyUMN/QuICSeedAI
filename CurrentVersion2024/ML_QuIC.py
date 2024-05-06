@@ -17,7 +17,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import classification_report, f1_score, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
-plt.rcParams.update({'font.size': 24})
+plt.rcParams.update({'font.size': 18})
 from sklearn.decomposition import KernelPCA
 import multiprocessing
 import seaborn as sns
@@ -553,17 +553,20 @@ class ML_QuIC:
        # Plot some examples
       fig, ax = plt.subplots(1, 1)
       fig.tight_layout(pad=3.0)
-      fig.suptitle('Misclassified False Positives for ' + model)
+      
       missed_fp_indices = test_indices[y_test == 1]
       missed_fp_indices = missed_fp_indices[preds_fp == 1] # FP classified as Pos
       
       if len(missed_fp_indices) < 1: 
         print('Insufficient missed false positives to plot, attempting replacement with missed positive sample')
-        missed_fp_indices = test_indices[np.logical_and(y_test_binary == 1, preds == 0)] 
-      ax.plot(np.arange(self.get_num_timesteps_raw()) * .75, self.get_numpy_dataset('raw')[missed_fp_indices[0]] / np.max(self.get_numpy_dataset('raw')[missed_fp_indices[0]]), c = 'k')
-      ax.set_xlabel('Hours')
-      ax.set_ylabel('Normalized Fluorescence Reading')
-      # plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', bbox_inches = 'tight', transparent = False, dpi = 500)
+        missed_fp_indices = test_indices[np.logical_and(y_test_binary == 1, preds == 0)]
+      ax.set_title('Misclassified FP - ' + model, fontsize = 18)
+      fp_to_plot = self.get_numpy_dataset('raw')[missed_fp_indices[0]]
+      normalized_fp = 100*(fp_to_plot - np.min(fp_to_plot)) / (np.max(fp_to_plot) - np.min(fp_to_plot))
+      ax.plot(np.arange(self.get_num_timesteps_raw()) * .75, normalized_fp, c = 'k')
+      ax.set_xlabel('Time (Hours)')
+      ax.set_ylabel('Percent of MPR')
+      plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
       plt.show()
       self.fp_plots[model] = self.get_numpy_dataset('raw')[missed_fp_indices[np.random.randint(0, len(missed_fp_indices))]]
 
@@ -625,13 +628,13 @@ class ML_QuIC:
         fig, ax = self._supervised_plots(y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r'])
 
       # Save plots that were generated for this model
-      # plt.savefig('./Figures/' + model + '_' + self.model_dtype[model] + '.png', bbox_inches = 'tight', transparent = False, dpi = 500)
+      plt.savefig('./Figures/' + model + '_' + self.model_dtype[model] + '.png', bbox_inches = 'tight', transparent = False, dpi = 500)
 
   def _supervised_plots(self, y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r']):
     """Plot model outcomes for generic supervised models"""
     # Set up figure for plotting
     fig, ax = plt.subplots(2, 2)
-    fig.tight_layout(pad=3.0)
+    fig.tight_layout(h_pad=2.0, w_pad=3.0)
     fig.suptitle('Classification Results for ' + model)
 
     # Case of binary +/- classifier
@@ -648,14 +651,12 @@ class ML_QuIC:
             preds_neg.append(y_predicted)
 
       # Plot confusion matrix
-      dtype = 'Raw' if self.model_dtype[model] == 'raw' else 'Feature Extracted'
-      
-      ax[0, 0].set_title(model + ' ' + dtype + ' Confusion Matrix')
+      ax[0, 0].set_title(model + ' Confusion Matrix')
       ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=(y_pred >= 0.5), ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'])
       
       cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=(y_pred >= 0.5), normalize='true', display_labels=['Negative', 'Positive']).figure_
-      cm_fig.suptitle(model + ' ' + dtype + ' Confusion Matrix')
-      # cm_fig.savefig('Figures/' + model + ' ' + dtype + ' Confusion Matrix.png')
+      cm_fig.suptitle(model + ' Confusion Matrix')
+      cm_fig.savefig('Figures/' + model + ' Confusion Matrix.png', bbox_inches='tight')
 
       # Violin plot on the classificatoin distributions
       ax[0, 1].set_title('Classification Distribution')
@@ -721,7 +722,7 @@ class ML_QuIC:
 
     # Set up figure for plotting
     fig, ax = plt.subplots(2, 2)
-    fig.tight_layout(pad=3.0)
+    fig.tight_layout(h_pad=2.0, w_pad=3.0)
     fig.suptitle('Classification Results for ' + model)
 
     # Obtain the testing data for reference
@@ -746,7 +747,7 @@ class ML_QuIC:
     ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
     cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, normalize='true', display_labels=['Negative', 'Positive']).figure_
     cm_fig.suptitle(model + ' ' + ' Confusion Matrix')
-    # cm_fig.savefig('Figures/' + model + ' ' + dtype + ' Confusion Matrix.png')
+    cm_fig.savefig('Figures/' + model + ' ' + dtype + ' Confusion Matrix.png')
     
     ax[0, 0].set_title('Classification Clusters')
     datapoints = self.get_numpy_dataset('analysis')

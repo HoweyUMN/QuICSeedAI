@@ -42,8 +42,9 @@ class SVM:
             with open(self.scaler_path, 'wb') as f:
                 pickle.dump(self.scaler, f)
     
-    def predict(self, data, binary = True):
-        """Binary is unimplemented because SVM is a true binary classifier with no ambiguity"""
+    def predict(self, data, labels = None, binary = True):
+        """Binary is unimplemented because SVM is a true binary classifier with no ambiguity
+        - Labels are unused"""
         data = self.pca.transform(data)
         data = self.scaler.transform(data)
         return self.model.predict(data)

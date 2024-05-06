@@ -345,7 +345,8 @@ class ML_QuIC:
         x_test = self.get_numpy_dataset('raw')[testing_indices[model]]
       else:
         x_test = self.get_numpy_dataset('analysis')[testing_indices[model]]
-      predictions[model] = self.models[model].predict(x_test)
+      y_test = self.get_numpy_dataset('labels')[testing_indices[model]]
+      predictions[model] = self.models[model].predict(x_test, y_test)
       self.predictions[model] = predictions[model]
 
     return predictions
@@ -417,7 +418,7 @@ class ML_QuIC:
         test_df = self.analysis_dataset.iloc[test_indices]
         
       # Append to dataset for easier function
-      preds_data = self.models[model].predict(self.get_numpy_dataset('raw')[test_indices], binary = True)
+      preds_data = self.models[model].predict(self.get_numpy_dataset('raw')[test_indices], self.get_numpy_dataset('labels')[test_indices], binary = True)
       test_df['Predictions'] = preds_data
       test_data = self.get_numpy_dataset('labels')[test_indices] # Required to avoid a useless error
       test_df['True'] = test_data
@@ -500,21 +501,9 @@ class ML_QuIC:
       y_test = self.get_numpy_dataset('labels')[test_indices]
 
       # Get model predictions
-      preds = self.models[model].predict(x_test, binary=True)
+      preds = self.models[model].predict(x_test, y_test, binary=True)
       y_test_binary = np.array(y_test == 2)
-      
-      # Ensuring labels are not backwards
-      pos_corr = 0
-      neg_corr = 0
-      for j in range(len(y_test_binary)):
-        if y_test_binary[j] == 1 and preds[j] == 1:
-          pos_corr += 1
-        elif y_test_binary[j] == 0 and preds[j] == 0:
-          neg_corr += 1
     
-      # If over half of each label are backwards, we flip
-      preds = preds if (pos_corr + neg_corr) < len(y_test_binary) / 2 else 1 - preds
-      preds = 1 - preds
       preds_fp = preds[y_test == 1]
 
       # Case where classifier has a nonbinary negative or positive output
@@ -735,10 +724,6 @@ class ML_QuIC:
     fig.tight_layout(pad=3.0)
     fig.suptitle('Classification Results for ' + model)
 
-    # For unsupervised, sometimes labels are swapped. This corrects for this fact
-    if np.sum(np.where(y_pred == y_true, 1, 0)) < 0.5 * len(y_true):
-      y_pred = 1 - y_pred
-
     # Obtain the testing data for reference
     ds = self.get_numpy_dataset()[self.testing_indices[model]]
     
@@ -747,8 +732,6 @@ class ML_QuIC:
     for i,data in enumerate(ds):
       ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_pred[i]])
 
-    # Ensures labels picked by unsupervised model are in appropriate ranges
-    y_pred = y_pred % 3
     # Confusion Matrix plot
     dtype = 'Raw' if self.model_dtype[model] == 'raw' else 'Feature Extracted'
       
@@ -759,17 +742,10 @@ class ML_QuIC:
     else:
       y_cm_pred = y_pred 
       y_cm = y_true
-      
-    # Ensuring labels are not backwards
-    pos_corr = len(np.where(np.logical_and(y_cm_pred == 1, y_cm == 1))) / len(y_cm == 1)
-    neg_corr = len(np.where(np.logical_and(y_cm_pred == 0, y_cm == 0))) / len(y_cm == 0)
-    
-    # If over half of each label are backwards, we flip
-    y_cm_pred = y_cm_pred if (pos_corr + neg_corr) < 1 else 1 - y_cm_pred
     
     ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
     cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, normalize='true', display_labels=['Negative', 'Positive']).figure_
-    cm_fig.suptitle(model + ' ' + dtype + ' Confusion Matrix')
+    cm_fig.suptitle(model + ' ' + ' Confusion Matrix')
     # cm_fig.savefig('Figures/' + model + ' ' + dtype + ' Confusion Matrix.png')
     
     ax[0, 0].set_title('Classification Clusters')
@@ -832,25 +808,20 @@ class ML_QuIC:
         else:
           y_cm_pred = y_pred
         
-        # Ensuring labels are not backwards
-        pos_corr = 0
-        neg_corr = 0
+        # Get a mask of correctly classified datapoints for plotting
         this_pos_correct_mask = np.zeros(len(y_cm))
         this_neg_correct_mask = np.zeros(len(y_cm))
+        temp_mask = np.zeros(len(y_cm))
         for j in range(len(y_cm)):
+          if y_true[j] == 0:
+            temp_mask[j] = 1
           if y_true[j] == 2 and y_cm_pred[j] == 1:
-            pos_corr += 1
             this_pos_correct_mask[j] = 1
           elif y_true[j] == 0 and y_cm_pred[j] == 0:
-            neg_corr += 1
             this_neg_correct_mask[j] = 1
             
         pos_correct_mask.append(this_pos_correct_mask.astype(bool))
         neg_correct_mask.append(this_neg_correct_mask.astype(bool))
-          
-        # If over half of each label are backwards, we flip
-        y_cm_pred = y_cm_pred if (pos_corr + neg_corr) < (len(y_true) / 2) else 1 - y_cm_pred
-        y_cm_pred = 1 - y_cm_pred
 
         # Generate the ROC curve and add to axis
         fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
@@ -888,11 +859,14 @@ class ML_QuIC:
       for i in range(len(samples)):
         if pos_correct_mask[0][i] and pos_correct_mask[1][i] and pos_correct_mask[2][i] and pos_correct_mask[3][i]:
           pos_sample = samples[i]
+          break
       
       # Find a universal negative reference
+      neg_sample = None
       for i in range(len(samples)):
-        if neg_correct_mask[0][i] and neg_correct_mask[1][i] and neg_correct_mask[2][i] and neg_correct_mask[3][i]:
+        if neg_correct_mask[1][i] and neg_correct_mask[2][i] and neg_correct_mask[3][i]:
           neg_sample = samples[i]
+          break
           
       # If we can't find one of the references, we stop early
       if pos_sample is None or neg_sample is None:

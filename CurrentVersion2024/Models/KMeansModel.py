@@ -1,6 +1,6 @@
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, f1_score
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 import pickle
@@ -34,24 +34,32 @@ class KMeansModel:
             self.model.fit(x)
 
     
-    def predict(self, data, binary = True):
-        """Binary is unimplemented because KMeans returns true binary output"""
+    def predict(self, data, labels, binary = True):
+        """Binary is unimplemented because KMeans returns true binary output - labels are used
+        to ensure cluster labels line up with true labels (ie neg = 0  and pos = 0)"""
         data = self.pca.transform(data)
         data = self.scaler.transform(data)
         preds = self.model.predict(data)
         max = np.max(preds)
         preds = np.array(preds == max, dtype=int) # Fix an issue where KMeans picks weird labels
+        
+        pos_label = np.max(preds) if not binary else 1
+        if pos_label == 1:
+            labels = np.array(labels == 2, dtype=int)
+            if np.max(preds) > 1:
+                preds = np.array(preds == 2, dtype=int)
+        
+        f1 =  f1_score(labels, preds, pos_label=pos_label)
+        f1_backwards = f1_score(labels, pos_label - preds, pos_label=pos_label)
+        
+        preds = preds if f1 > f1_backwards else pos_label - preds
 
         return preds
     
     def get_scores(self, data, true):
-        pred = self.predict(data, binary=True)
+        pred = self.predict(data, true, binary=True)
         if np.max(pred) == 2: 
             pred = np.where(pred == 2, 1, 0)
         true = np.where(true == 2, 1, 0)
-
-        # KMeans picks whatever label it wants, so we assume if its doing under 50, it picked opposite to us
-        if len(pred[pred == true]) < 0.5 * len(true):
-            pred = 1 - pred
 
         return classification_report(true, pred, target_names=["neg", "pos"])

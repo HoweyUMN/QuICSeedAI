@@ -44,7 +44,7 @@ class MLP:
         if not self.pretrained:
             self.scaler.fit(x)
             x = self.scaler.transform(x)
-            with open('../scaler.pkl', 'wb') as f:
+            with open(self.scaler_path, 'wb') as f:
                 pickle.dump(self.scaler, f)
 
             # y = np.array(y == 2)
@@ -80,9 +80,9 @@ class MLP:
             
             self.model.save(self.model_path)
 
-    def predict(self, data, binary = False):
+    def predict(self, data, labels = None, binary = False):
         """Acts as an interface for the model's prediction method, performs scaling and
-        gets data into a format appropriate for testing"""
+        gets data into a format appropriate for testing - labels are unused"""
 
         # Get the predictions
         data = self.scaler.transform(data)

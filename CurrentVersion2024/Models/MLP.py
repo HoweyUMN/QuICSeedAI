@@ -2,7 +2,7 @@ import os
 import keras
 import numpy as np
 import tensorflow as tf
-from keras.layers import Dense, Input
+from keras.layers import Dense, Input, Dropout
 from keras import Model, regularizers
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report
@@ -26,9 +26,12 @@ class MLP:
         else: # Train new if can't find necessary components
             input_layer = Input(shape=NDIM)
             dense = Dense(NDIM, activation = 'relu')(input_layer)
+            dense = Dropout(0.5)(dense)
             dense = Dense(NDIM, activation = 'relu')(dense)
+            dense = Dropout(0.5)(dense)
             dense = Dense(NDIM, activation = 'relu')(dense)
-            output = Dense(3, activation='sigmoid')(dense)
+            dense = Dropout(0.5)(dense)
+            output = Dense(3, activation='softmax')(dense)
 
             self.model = Model(input_layer, output)
             self.scaler = StandardScaler()
@@ -38,7 +41,7 @@ class MLP:
         print(type(self.model))
 
     def fit(self, learning_rate=1e-4, loss = 'categorical_crossentropy',
-            x = None, y = None, batch_size = 128, epochs = 700, verbose = 0, callbacks = None, validation_split = 0.1,
+            x = None, y = None, batch_size = 128, epochs = 200, verbose = 0, callbacks = None, validation_split = 0.1,
             validation_data = None, shuffle = True, class_weight = None, sample_weight=None, initial_epoch=0, 
             steps_per_epoch = None, validation_steps = None, validation_batch_size = None, validation_freq = 1, 
             max_queue_size = 10, workers = 1, use_multiprocessing = True):
@@ -57,7 +60,7 @@ class MLP:
             self.model.compile(optimizer = tf.keras.optimizers.Adam(learning_rate), loss = loss)
 
             if callbacks == None:
-                callbacks = [keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 15, mode='min', restore_best_weights = True)]
+                callbacks = [keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, mode='min', restore_best_weights = True)]
 
             self.model.fit(
                 x,

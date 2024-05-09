@@ -1,0 +1,281 @@
+Loading Data from ../Data/BigAnalysis
+---- Dataset Label Distribution ----
+Negative Samples: 7067
+False Positive Samples: 264
+Positive Samples: 1177
+
+---- Well Content Distribution: ----
+Data Wells: 7524
+Control Wells: 984
+
+KMeans Model Loaded:
+<class 'sklearn.cluster._kmeans.KMeans'>
+
+KMeans Model Loaded:
+<class 'sklearn.cluster._kmeans.KMeans'>
+
+SVM Model Loaded:
+<class 'sklearn.svm._classes.SVC'>
+
+SVM Model Loaded:
+<class 'sklearn.svm._classes.SVC'>
+2024-05-06 16:49:57.872976: I tensorflow/core/platform/cpu_feature_guard.cc:193] This TensorFlow binary is optimized with oneAPI Deep Neural Network Library (oneDNN) to use the following CPU instructions in performance-critical operations:  AVX AVX2
+To enable them in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2024-05-06 16:49:58.241458: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1616] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 5492 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3060 Ti, pci bus id: 0000:01:00.0, compute capability: 8.6
+\MLP Model Loaded:
+<class 'keras.engine.functional.Functional'>
+KMeans Raw:
+              precision    recall  f1-score   support
+
+         neg       0.90      0.99      0.95      7331
+         pos       0.91      0.34      0.50      1177
+
+    accuracy                           0.90      8508
+   macro avg       0.91      0.67      0.72      8508
+weighted avg       0.91      0.90      0.89      8508
+
+KMeans Metrics:
+              precision    recall  f1-score   support
+
+         neg       1.00      0.96      0.98      7331
+         pos       0.82      1.00      0.90      1177
+
+    accuracy                           0.97      8508
+   macro avg       0.91      0.98      0.94      8508
+weighted avg       0.97      0.97      0.97      8508
+
+c:\Users\kyleh\anaconda3\envs\tf-keras-gpu\lib\site-packages\sklearn\manifold\_spectral_embedding.py:259: UserWarning: Graph is not fully connected, spectral embedding may not work as expected.
+  warnings.warn(
+Spectral Raw:
+              precision    recall  f1-score   support
+
+         neg       1.00      0.82      0.90      7331
+         pos       0.47      0.98      0.64      1177
+
+    accuracy                           0.85      8508
+   macro avg       0.73      0.90      0.77      8508
+weighted avg       0.92      0.85      0.87      8508
+
+c:\Users\kyleh\anaconda3\envs\tf-keras-gpu\lib\site-packages\sklearn\manifold\_spectral_embedding.py:259: UserWarning: Graph is not fully connected, spectral embedding may not work as expected.
+  warnings.warn(
+Spectral Metrics:
+              precision    recall  f1-score   support
+
+         neg       0.96      0.98      0.97      7331
+         pos       0.85      0.73      0.79      1177
+
+    accuracy                           0.94      8508
+   macro avg       0.90      0.86      0.88      8508
+weighted avg       0.94      0.94      0.94      8508
+
+-------- Results on False Positives for KMeans Raw --------
+Accuracy on False Positives: 0.8484848484848485
+False Positives Account for 4.93% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 26.49375
+Average RAF: 0.03846185395
+Average MPR: 16.617498745375002
+Average MS: 1354.8875
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 36.351875
+Average RAF: 0.03327465478125
+Average MPR: 6.845203804517857
+Average MS: 521.828125
+-------- Results on False Positives for KMeans Metrics --------
+Accuracy on False Positives: 0.0
+False Positives Account for 100.00% of total misclassifications.
+c:\Users\kyleh\anaconda3\envs\tf-keras-gpu\lib\site-packages\numpy\core\fromnumeric.py:3504: RuntimeWarning: Mean of empty slice.
+  return _methods._mean(a, axis=axis, dtype=dtype,
+c:\Users\kyleh\anaconda3\envs\tf-keras-gpu\lib\site-packages\numpy\core\_methods.py:129: RuntimeWarning: invalid value encountered in scalar divide
+  ret = ret.dtype.type(ret / rcount)
+Misclassified FP Characteristics:
+Average Time to Threshold: 34.8582196969697
+Average RAF: 0.03406059404924242
+Average MPR: 8.325854553132576
+Average MS: 648.0492424242424
+Correctly Classified FP Characteristics:
+Average Time to Threshold: nan
+Average RAF: nan
+Average MPR: nan
+Average MS: nan
+-------- Results on False Positives for Spectral Raw --------
+Accuracy on False Positives: 0.13636363636363635
+False Positives Account for 17.33% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 33.65491228070175
+Average RAF: 0.03520319316666667
+Average MPR: 9.059469673004386
+Average MS: 719.108552631579
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 42.479166666666664
+Average RAF: 0.026824132972222227
+Average MPR: 3.679625460611111
+Average MS: 198.00694444444446
+-------- Results on False Positives for Spectral Metrics --------
+Accuracy on False Positives: 0.49242424242424243
+False Positives Account for 28.63% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 32.767985074626864
+Average RAF: 0.03731058878358209
+Average MPR: 12.211586899059702
+Average MS: 1073.8208955223881
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 37.01276923076923
+Average RAF: 0.03071059947692308
+Average MPR: 4.320561211946154
+Average MS: 209.1769230769231
+-------- Positive Characteristics for Reference --------
+Time To Threshold:
+        Min: 4.5, Average: 23.57521665250637, Max: 48.0
+RAF:
+        Min: 0.020833333, Average: 0.04972645196686491, Max: 0.222222222
+MPR:
+        Min: 1.241918665, Average: 10.874698049903143, Max: 54.12040816
+MS:
+        Min: 48.75, Average: 849.0369583687341, Max: 5967.75
+SVM Raw:
+              precision    recall  f1-score   support
+
+         neg       0.99      0.99      0.99       724
+         pos       0.95      0.97      0.96       126
+
+    accuracy                           0.99       850
+   macro avg       0.97      0.98      0.98       850
+weighted avg       0.99      0.99      0.99       850
+
+SVM Metrics:
+              precision    recall  f1-score   support
+
+         neg       1.00      0.97      0.98       724
+         pos       0.86      0.99      0.92       126
+
+    accuracy                           0.97       850
+   macro avg       0.93      0.98      0.95       850
+weighted avg       0.98      0.97      0.97       850
+
+2024-05-06 16:54:15.896923: I tensorflow/stream_executor/cuda/cuda_blas.cc:1614] TensorFloat-32 will be used for the matrix multiplication. This will only be logged once.
+27/27 [==============================] - 1s 2ms/step
+MLP Raw:
+              precision    recall  f1-score   support
+
+         neg       1.00      0.96      0.98       724
+         pos       0.83      0.98      0.90       126
+
+    accuracy                           0.97       850
+   macro avg       0.91      0.97      0.94       850
+weighted avg       0.97      0.97      0.97       850
+
+-------- Results on False Positives for SVM Raw --------
+Accuracy on False Positives: 0.7777777777777778
+False Positives Account for 60.00% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 32.0
+Average RAF: 0.03199084866666666
+Average MPR: 9.419006182833334
+Average MS: 858.875
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 39.785714285714285
+Average RAF: 0.028554594000000003
+Average MPR: 7.891910686761907
+Average MS: 618.452380952381
+-------- Results on False Positives for SVM Metrics --------
+Accuracy on False Positives: 0.2222222222222222
+False Positives Account for 95.45% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 38.785714285714285
+Average RAF: 0.02741330242857143
+Average MPR: 6.547142352142856
+Average MS: 543.0952380952381
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 35.5
+Average RAF: 0.03598536916666666
+Average MPR: 14.125695353999996
+Average MS: 1122.625
+-------- Results on False Positives for MLP Raw --------
+27/27 [==============================] - 0s 7ms/step
+Accuracy on False Positives: 0.037037037037037035
+False Positives Account for 92.86% of total misclassifications.
+Misclassified FP Characteristics:
+Average Time to Threshold: 37.67307692307692
+Average RAF: 0.029644547423076924
+Average MPR: 8.434722824653845
+Average MS: 692.0384615384615
+Correctly Classified FP Characteristics:
+Average Time to Threshold: 48.0
+Average RAF: 0.020833333
+Average MPR: 2.941368078
+Average MS: 147.75
+-------- Positive Characteristics for Reference --------
+Time To Threshold:
+        Min: 4.5, Average: 23.57521665250637, Max: 48.0
+RAF:
+        Min: 0.020833333, Average: 0.04972645196686491, Max: 0.222222222
+MPR:
+        Min: 1.241918665, Average: 10.874698049903143, Max: 54.12040816
+MS:
+        Min: 48.75, Average: 849.0369583687341, Max: 5967.75
+27/27 [==============================] - 0s 2ms/step
+27/27 [==============================] - 0s 4ms/step
+Backend TkAgg is interactive backend. Turning interactive mode on.
+Loading Data from ../Data/BigAnalysisGWells
+---- Dataset Label Distribution ----
+Negative Samples: 208
+False Positive Samples: 0
+Positive Samples: 96
+
+---- Well Content Distribution: ----
+Data Wells: 304
+Control Wells: 0
+
+KMeans Model Loaded:
+<class 'sklearn.cluster._kmeans.KMeans'>
+
+SVM Model Loaded:
+<class 'sklearn.svm._classes.SVC'>
+
+SVM Model Loaded:
+<class 'sklearn.svm._classes.SVC'>
+\MLP Model Loaded:
+<class 'keras.engine.functional.Functional'>
+SVM Raw:
+              precision    recall  f1-score   support
+
+         neg       0.87      1.00      0.93       208
+         pos       1.00      0.67      0.80        96
+
+    accuracy                           0.89       304
+   macro avg       0.93      0.83      0.86       304
+weighted avg       0.91      0.89      0.89       304
+
+SVM Metrics:
+              precision    recall  f1-score   support
+
+         neg       0.98      1.00      0.99       208
+         pos       1.00      0.95      0.97        96
+
+    accuracy                           0.98       304
+   macro avg       0.99      0.97      0.98       304
+weighted avg       0.98      0.98      0.98       304
+
+10/10 [==============================] - 0s 1ms/step
+MLP Raw:
+              precision    recall  f1-score   support
+
+         neg       0.99      1.00      1.00       208
+         pos       1.00      0.98      0.99        96
+
+    accuracy                           0.99       304
+   macro avg       1.00      0.99      0.99       304
+weighted avg       0.99      0.99      0.99       304
+
+KMeans Metrics:
+              precision    recall  f1-score   support
+
+         neg       1.00      1.00      1.00       208
+         pos       1.00      1.00      1.00        96
+
+    accuracy                           1.00       304
+   macro avg       1.00      1.00      1.00       304
+weighted avg       1.00      1.00      1.00       304
+
+10/10 [==============================] - 0s 1ms/step

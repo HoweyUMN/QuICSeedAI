@@ -18,7 +18,7 @@ import numpy as np
 from sklearn.metrics import classification_report, f1_score, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 plt.rcParams.update({'font.size': 18})
-from sklearn.decomposition import KernelPCA
+from sklearn.preprocessing import StandardScaler
 import multiprocessing
 import seaborn as sns
 from sklearn.metrics import RocCurveDisplay, roc_auc_score, roc_curve
@@ -83,6 +83,9 @@ class ML_QuIC:
     
     self.fp_plots = {}
     """Stores false positive plots for unified plotting"""
+    
+    self.scaler = StandardScaler
+    "Store a scaled version of the data to use for plotting"
       
   def import_dataset(self, data_dir = './Data/', folders = None):
     """Takes in the directory data is stored in and the selected folder names 
@@ -143,6 +146,9 @@ class ML_QuIC:
     self.analysis_dataset = analysis
     self.labels = metadata['final']
     self.replicate_data = replicates
+    
+    # Fit a standard scaler to the raw data for plots
+    self.scaler = self.scaler.fit(self.get_numpy_dataset())
 
     return [raw_data, metadata, analysis]
   
@@ -552,7 +558,6 @@ class ML_QuIC:
       
        # Plot some examples
       fig, ax = plt.subplots(1, 1)
-      fig.tight_layout(pad=3.0)
       
       missed_fp_indices = test_indices[y_test == 1]
       missed_fp_indices = missed_fp_indices[preds_fp == 1] # FP classified as Pos
@@ -562,10 +567,10 @@ class ML_QuIC:
         missed_fp_indices = test_indices[np.logical_and(y_test_binary == 1, preds == 0)]
       ax.set_title('Misclassified FP - ' + model, fontsize = 18)
       fp_to_plot = self.get_numpy_dataset('raw')[missed_fp_indices[0]]
-      normalized_fp = 100*(fp_to_plot - np.min(fp_to_plot)) / (np.max(fp_to_plot) - np.min(fp_to_plot))
+      normalized_fp = self.scaler.transform(fp_to_plot)
       ax.plot(np.arange(self.get_num_timesteps_raw()) * .75, normalized_fp, c = 'k')
       ax.set_xlabel('Time (Hours)')
-      ax.set_ylabel('Percent of MPR')
+      ax.set_ylabel('Scaled Fluorescence')
       plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
       plt.show()
       self.fp_plots[model] = self.get_numpy_dataset('raw')[missed_fp_indices[np.random.randint(0, len(missed_fp_indices))]]
@@ -628,13 +633,12 @@ class ML_QuIC:
         fig, ax = self._supervised_plots(y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r'])
 
       # Save plots that were generated for this model
-      plt.savefig('./Figures/' + model + '_' + self.model_dtype[model] + '.png', bbox_inches = 'tight', transparent = False, dpi = 500)
+      plt.savefig('./Figures/' + model + '.png', bbox_inches = 'tight', transparent = False, dpi = 500)
 
   def _supervised_plots(self, y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r']):
     """Plot model outcomes for generic supervised models"""
     # Set up figure for plotting
     fig, ax = plt.subplots(2, 2)
-    fig.tight_layout(h_pad=2.0, w_pad=3.0)
     fig.suptitle('Classification Results for ' + model)
 
     # Case of binary +/- classifier
@@ -656,15 +660,17 @@ class ML_QuIC:
       
       cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=(y_pred >= 0.5), normalize='true', display_labels=['Negative', 'Positive']).figure_
       cm_fig.suptitle(model + ' Confusion Matrix')
-      cm_fig.savefig('Figures/' + model + ' Confusion Matrix.png', bbox_inches='tight')
+      cm_fig.savefig('Figures/' + model + ' Confusion Matrix.png', bbox_inches='tight', dpi=500)
 
       # Violin plot on the classificatoin distributions
       ax[0, 1].set_title('Classification Distribution')
       sns.violinplot(data=[preds_neg, preds_pos], orient='h', inner='stick', cut=0, ax=ax[0, 1])
 
       # Plot an ROC curve for supervised learning methods
-      ax[1, 0].set_title('ROC Curve, AUC: {0:.2f}'.format(roc_auc_score(y_true, y_pred)))
-      RocCurveDisplay.from_predictions(y_true, y_pred, ax=ax[1, 0])
+      fpr, tpr, thresh = roc_curve(y_true, y_pred)
+      auc = roc_auc_score(y_true, y_pred)
+      ax[1, 0].plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
+      ax[1, 0].legend(loc=0, fontsize = 18)
 
       # Obtain the testing data for reference
       ds = self.get_numpy_dataset()[self.testing_indices[model]]
@@ -695,16 +701,27 @@ class ML_QuIC:
       pred_binary = (y_pred >= 1.5)
 
       # Plot confusion matrix
-      ax[0, 0].set_title('Binary Confusion Matrix')
       ConfusionMatrixDisplay.from_predictions(y_true=y_binary, y_pred=pred_binary, ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'])
+      cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_binary, y_pred=pred_binary, normalize='true', display_labels=['Negative', 'Positive'], colorbar='False').figure_
+      cm_fig.suptitle(model + ' Confusion Matrix')
+      cm_fig.savefig('Figures/' + model + ' Confusion Matrix.png', bbox_inches='tight', dpi=500)
 
       # Violin plot on the classificatoin distributions
       ax[0, 1].set_title('Classification Distribution')
       ax[0, 1].violinplot(dataset=[preds_neg, preds_pos], showmeans=True, showextrema=True, vert=False)
 
       # Plot an ROC curve for supervised learning methods
-      ax[1, 0].set_title('ROC Curve, AUC: {0:.2f}'.format(roc_auc_score(y_binary, pred_binary)))
-      RocCurveDisplay.from_predictions(y_binary, pred_binary, ax=ax[1, 0])
+      fpr, tpr, thresh = roc_curve(y_binary, pred_binary)
+      auc = roc_auc_score(y_binary, pred_binary)
+      ax[1, 0].set_title('ROC Curve for ' + model)
+      ax[1, 0].plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
+      ax[1, 0].legend(loc=0, fontsize = 18)
+      
+      roc_fig, roc_ax = plt.subplots(1)
+      roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
+      roc_ax.legend(loc=0, fontsize = 18)
+      roc_ax.set_title('ROC Curve for ' + model)
+      roc_fig.savefig('./Figures/' + model + ' ROC.png', dpi=500, bbox_inches = 'tight')
 
       # Obtain the testing data for reference
       ds = self.get_numpy_dataset()[self.testing_indices[model]]
@@ -722,7 +739,6 @@ class ML_QuIC:
 
     # Set up figure for plotting
     fig, ax = plt.subplots(2, 2)
-    fig.tight_layout(h_pad=2.0, w_pad=3.0)
     fig.suptitle('Classification Results for ' + model)
 
     # Obtain the testing data for reference
@@ -734,9 +750,7 @@ class ML_QuIC:
       ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()), data, c = color_map[y_pred[i]])
 
     # Confusion Matrix plot
-    dtype = 'Raw' if self.model_dtype[model] == 'raw' else 'Feature Extracted'
-      
-    ax[0, 1].set_title(model + ' ' + dtype + ' Confusion Matrix')
+    ax[0, 1].set_title(model + ' Confusion Matrix')
     if np.max(y_pred) > 1:
       y_cm = np.array(np.rint(y_true) == 2, dtype = int)
       y_cm_pred = np.array(np.rint(y_pred) == 2, dtype=int)
@@ -746,8 +760,8 @@ class ML_QuIC:
     
     ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
     cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, normalize='true', display_labels=['Negative', 'Positive']).figure_
-    cm_fig.suptitle(model + ' ' + ' Confusion Matrix')
-    cm_fig.savefig('Figures/' + model + ' ' + dtype + ' Confusion Matrix.png')
+    cm_fig.suptitle(model + ' ' + 'Confusion Matrix')
+    cm_fig.savefig('Figures/' + model + ' Confusion Matrix.png', bbox_inches = 'tight', dpi=500)
     
     ax[0, 0].set_title('Classification Clusters')
     datapoints = self.get_numpy_dataset('analysis')
@@ -789,7 +803,7 @@ class ML_QuIC:
       roc_ax.set_ylabel('True Positive Rate')
     
       # Set titles for figures   
-      roc_fig.suptitle('ROC Curves for Unsupervised Models')
+      roc_ax.set_title('ROC Curves for Unsupervised Models')
       cm_fig.suptitle('Unsupervised Models Confusion Matrices')  
       
       # Unsupervised block handled differently
@@ -828,7 +842,7 @@ class ML_QuIC:
         fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
         auc = roc_auc_score(y_cm, y_cm_pred)
         roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
-        roc_ax.legend(loc=0)
+        roc_ax.legend(loc=0, fontsize = 12)
         
         cm_ax[i % 2, int(i / 2)].set_title(model)
         ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2, int(i / 2)], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
@@ -836,24 +850,21 @@ class ML_QuIC:
         # Get data for plotting fps and comparison with positive sample
         fp_plots_to_show.append(self.fp_plots[model])
       
-      cm_fig.tight_layout(pad = 2)
-      roc_fig.tight_layout(pad = 2)
-      cm_fig.savefig('Figures/Unsupervised CMs.png')
-      roc_fig.savefig('Figures/Unsupervised ROC.png')
+      cm_fig.savefig('Figures/Unsupervised CMs.png', bbox_inches = 'tight', dpi=500)
+      roc_fig.savefig('Figures/Unsupervised ROC.png', bbox_inches = 'tight', dpi=500)
       
       # Using last version of model here, should be the same indices ideally TODO - Enforce this?
       samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
-      pos_samples = samples[y_cm == 1]
-      neg_samples = samples[y_cm == 0]
       
       # Create plot and collect axes
       fig, ax = plt.subplots(2, 3)
       fig.suptitle('Classification Comparisons')
       for i, fp_ax in enumerate(fp_plots_to_show):
         ax[i%2, 1 + int(i/2)].set_title(models[i])
-        ax[i%2, 1 + int(i/2)].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax / np.max(fp_ax), c = 'k')
-        ax[i%2, 1 + int(i/2)].set_xlabel('Hours')
-        ax[i%2, 1 + int(i/2)].set_ylabel('Normalized Fluorescence Reading')
+        normalized = self.scaler.transform([fp_ax])
+        ax[i%2, 1 + int(i/2)].plot(np.arange(self.get_num_timesteps_raw()) * .75, normalized, c = 'k')
+        ax[i%2, 1 + int(i/2)].set_xlabel('Time (Hours)')
+        ax[i%2, 1 + int(i/2)].set_ylabel('Percentage of MPR')
       
       # Find a universal positive reference
       pos_sample = None
@@ -865,7 +876,7 @@ class ML_QuIC:
       # Find a universal negative reference
       neg_sample = None
       for i in range(len(samples)):
-        if neg_correct_mask[1][i] and neg_correct_mask[2][i] and neg_correct_mask[3][i]:
+        if neg_correct_mask[0][i] and neg_correct_mask[1][i] and neg_correct_mask[2][i] and neg_correct_mask[3][i]:
           neg_sample = samples[i]
           break
           
@@ -875,16 +886,17 @@ class ML_QuIC:
         raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
       
       ax[0, 0].set_title('Positive Reference Sample')
-      ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, pos_sample / np.max(pos_sample), c = 'k')
-      ax[0, 0].set_xlabel('Hours')
-      ax[0, 0].set_ylabel('Normalized Fluorescence Reading')
+      normalized = self.scaler.transform([pos_sample])
+      ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, normalized, c = 'k')
+      ax[0, 0].set_xlabel('Time (Hours)')
+      ax[0, 0].set_ylabel('Percentage of MPR')
       
       ax[1, 0].set_title('Negative Reference Sample')
-      ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, neg_sample / np.max(neg_sample), c = 'k')
-      ax[1, 0].set_xlabel('Hours')
-      ax[1, 0].set_ylabel('Normalized Fluorescence Reading')
-      fig.tight_layout(pad = 2)
-      fig.savefig('Figures/Unsupervised Samples.png')
+      normalized = self.scaler.transform([neg_sample])
+      ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, normalized, c = 'k')
+      ax[1, 0].set_xlabel('Time (Hours)')
+      ax[1, 0].set_ylabel('Percentage of MPR')
+      fig.savefig('Figures/Unsupervised Samples.png', bbox_inches = 'tight', dpi=500)
       plt.show()
   
   def get_group_plots_supervised(self, model_names = None, tags = None):
@@ -937,29 +949,26 @@ class ML_QuIC:
         fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
         auc = roc_auc_score(y_cm, y_cm_pred)
         roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
-        roc_ax.legend(loc=0)
+        roc_ax.legend(loc=0, fontsize = 18)
         
         cm_ax[i % 2].set_title(model)
         ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
         
         # Get data for plotting fps and comparison with positive sample
-        if model != 'MLP Raw':
-          # Ensuring labels are not backwards
-          this_pos_correct_mask = np.zeros(len(y_cm))
-          this_neg_correct_mask = np.zeros(len(y_cm))
-          for j in range(len(y_cm)):
-            if y_cm[j] == 1 and y_cm_pred[j] == 1:
-              this_pos_correct_mask[j] = 1
-            elif y_cm[j] == 0 and y_cm_pred[j] == 0:
-              this_neg_correct_mask[j] = 1
-              
-          pos_correct_mask.append(this_pos_correct_mask.astype(bool))
-          neg_correct_mask.append(this_neg_correct_mask.astype(bool))
+        this_pos_correct_mask = np.zeros(len(y_cm))
+        this_neg_correct_mask = np.zeros(len(y_cm))
+        for j in range(len(y_cm)):
+          if y_cm[j] == 1 and y_cm_pred[j] == 1:
+            this_pos_correct_mask[j] = 1
+          elif y_cm[j] == 0 and y_cm_pred[j] == 0:
+            this_neg_correct_mask[j] = 1
+            
+        pos_correct_mask.append(this_pos_correct_mask.astype(bool))
+        neg_correct_mask.append(this_neg_correct_mask.astype(bool))
+        fp_plots_to_show.append(self.fp_plots[model])
        
-      cm_fig.tight_layout(pad = 2)
-      roc_fig.tight_layout(pad = 2)
-      cm_fig.savefig('Figures/Unsupervised CMs.png')
-      roc_fig.savefig('Figures/Unsupervised ROC.png')
+      cm_fig.savefig('Figures/Supervised CMs.png', dpi=500, bbox_inches='tight')
+      roc_fig.savefig('Figures/Supervised ROC.png', dpi=500, bbox_inches='tight')
        
       # Using last version of model here, should be the same indices ideally TODO - Enforce this?
       samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
@@ -968,10 +977,11 @@ class ML_QuIC:
       fig, ax = plt.subplots(2, 2)
       fig.suptitle('Classification Comparisons')
       for i, fp_ax in enumerate(fp_plots_to_show):
-        ax[i%2, 1].set_title(models[i])
-        ax[i%2, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
-        ax[i%2, 1].set_xlabel('Hours')
-        ax[i%2, 1].set_ylabel('Normalized Fluorescence Reading')
+        ax[i, 1].set_title(models[i])
+        normalized = self.scaler.transform([fp_ax])
+        ax[i, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, normalized, c = 'k')
+        ax[i, 1].set_xlabel('Time (Hours)')
+        ax[i, 1].set_ylabel('Scaled Fluorescence')
       
       # Find a universal positive reference
       pos_sample = None
@@ -990,14 +1000,15 @@ class ML_QuIC:
         raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
       
       ax[0, 0].set_title('Positive Reference Sample')
-      ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample / np.max(pos_sample), c = 'k')
-      ax[0, 0].set_xlabel('Hours')
-      ax[0, 0].set_ylabel('Normalized Fluorescence Reading')
+      normalized = self.scaler.transform(pos_sample)
+      ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, normalized, c = 'k')
+      ax[0, 0].set_xlabel('Time (Hours)')
+      ax[0, 0].set_ylabel('Scaled Fluorescence')
       
       ax[1, 0].set_title('Negative Reference Sample')
-      ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample / np.max(neg_sample), c = 'k')
-      ax[1, 0].set_xlabel('Hours')
-      ax[1, 0].set_ylabel('Normalized Fluorescence Reading')
-      fig.tight_layout(pad = 2)
-      fig.savefig('Figures/Unsupervised Samples.png')
+      normalized = self.scaler.transform([neg_sample])
+      ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, normalized, c = 'k')
+      ax[1, 0].set_xlabel('Time (Hours)')
+      ax[1, 0].set_ylabel('Scaled Fluorescence')
+      fig.savefig('Figures/Supervised Samples.png', bbox_inches='tight', dpi=500)
       plt.show()

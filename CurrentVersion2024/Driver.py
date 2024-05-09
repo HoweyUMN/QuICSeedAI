@@ -57,7 +57,7 @@ ml_quic.add_model(MLP.MLP(NDIM = ml_quic.get_num_timesteps_raw(),
 ml_quic.separate_train_test(tags=['Unsupervised'], train_type=3)
 ml_quic.train_models(tags=['Unsupervised'])
 
-# ### Train Supervised Models
+### Train Supervised Models
 ml_quic.separate_train_test(tags=['Supervised'], train_type=0)
 ml_quic.train_models(tags = ['Supervised'])
 
@@ -101,6 +101,7 @@ ml_quic.separate_train_test(tags=['Supervised', 'Unsupervised'], train_type=3)
 
 ### Get Supervised Scores and Plots
 ml_quic.get_model_scores(tags = ['Supervised', 'Unsupervised'])
-ml_quic.get_model_plots(tags=['Supervised', 'Unsupervised'])
 
 
+
+# %%

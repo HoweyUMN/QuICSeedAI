@@ -9,7 +9,7 @@ import os
 class SVM:
     """A simple interface between a KMeans model and the generic ML-QuIC structure. All the methods are unaltered, just a mask to keep things consistent."""
 
-    def __init__(self, kernel = 'rbf', degree = 3, random_state = 7, file_path = './', model_name = 'svm'):
+    def __init__(self, kernel = 'rbf', random_state = 7, file_path = './', model_name = 'svm'):
         self.model_path = file_path + model_name + '.pkl'
         self.scaler_path = file_path + model_name + '_scaler.pkl'
         self.pca_path = file_path + model_name + '_pca.pkl'
@@ -21,7 +21,7 @@ class SVM:
             self.pca = pickle.load(open(self.pca_path, 'rb'))
             self.pretrained = True
         else: # Generate new if doesn't exist
-            self.model = SVC(kernel=kernel, degree = degree, random_state=random_state)
+            self.model = SVC(kernel=kernel, random_state=random_state)
             self.scaler = StandardScaler()
             self.pca = PCA(n_components=4)
         

@@ -8,6 +8,11 @@ analysis = pd.read_csv('./Data/BigAnalysisSource/combined_analysis.csv')
 meta = pd.read_csv('./Data/BigAnalysisSource/combined_meta.csv')
 replicate = pd.read_csv('./Data/BigAnalysisSource/combined_replicate.csv')
 
+raw = raw[raw['content_replicate'].str.contains('KBC') == False]
+analysis = analysis[analysis['content_replicate'].str.contains('KBC') == False]
+replicate = replicate[replicate['Sample'].str.contains('KBC') == False]
+meta = meta[meta['content'].str.contains('KBC') == False]
+
 # Import the list of samples to withhold
 unused_samples = pd.read_csv('./Data/BigAnalysisSource/BigAnalysis-Excluded.csv')
 

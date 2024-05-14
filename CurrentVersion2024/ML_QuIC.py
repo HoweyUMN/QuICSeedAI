@@ -84,7 +84,7 @@ class ML_QuIC:
     self.fp_plots = {}
     """Stores false positive plots for unified plotting"""
     
-    self.scaler = StandardScaler
+    self.scaler = StandardScaler()
     "Store a scaled version of the data to use for plotting"
       
   def import_dataset(self, data_dir = './Data/', folders = None):
@@ -567,10 +567,11 @@ class ML_QuIC:
         missed_fp_indices = test_indices[np.logical_and(y_test_binary == 1, preds == 0)]
       ax.set_title('Misclassified FP - ' + model, fontsize = 18)
       fp_to_plot = self.get_numpy_dataset('raw')[missed_fp_indices[0]]
-      normalized_fp = self.scaler.transform(fp_to_plot)
+      normalized_fp = fp_to_plot / np.max(fp_to_plot)
       ax.plot(np.arange(self.get_num_timesteps_raw()) * .75, normalized_fp, c = 'k')
       ax.set_xlabel('Time (Hours)')
-      ax.set_ylabel('Scaled Fluorescence')
+      ax.set_ylabel('Normalized Fluorescence')
+      # ax.set_ylim([0, 1])
       plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
       plt.show()
       self.fp_plots[model] = self.get_numpy_dataset('raw')[missed_fp_indices[np.random.randint(0, len(missed_fp_indices))]]
@@ -861,10 +862,11 @@ class ML_QuIC:
       fig.suptitle('Classification Comparisons')
       for i, fp_ax in enumerate(fp_plots_to_show):
         ax[i%2, 1 + int(i/2)].set_title(models[i])
-        normalized = self.scaler.transform([fp_ax])
+        normalized = fp_ax / np.linalg.norm(fp_ax)
         ax[i%2, 1 + int(i/2)].plot(np.arange(self.get_num_timesteps_raw()) * .75, normalized, c = 'k')
         ax[i%2, 1 + int(i/2)].set_xlabel('Time (Hours)')
-        ax[i%2, 1 + int(i/2)].set_ylabel('Percentage of MPR')
+        ax[i%2, 1 + int(i/2)].set_ylabel('Normalized Fluorescence')
+        ax[i%2, 1 + int(i/2)].set_ylim([0, 1])
       
       # Find a universal positive reference
       pos_sample = None
@@ -886,16 +888,17 @@ class ML_QuIC:
         raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
       
       ax[0, 0].set_title('Positive Reference Sample')
-      normalized = self.scaler.transform([pos_sample])
+      normalized = pos_sample / np.linalg.norm(pos_sample)
       ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, normalized, c = 'k')
       ax[0, 0].set_xlabel('Time (Hours)')
-      ax[0, 0].set_ylabel('Percentage of MPR')
-      
+      ax[0, 0].set_ylabel('Normalized Fluorescence')
+      ax[0, 0].set_ylim([0, 1])
       ax[1, 0].set_title('Negative Reference Sample')
-      normalized = self.scaler.transform([neg_sample])
+      normalized = neg_sample / np.linalg.norm(neg_sample)
       ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, normalized, c = 'k')
       ax[1, 0].set_xlabel('Time (Hours)')
-      ax[1, 0].set_ylabel('Percentage of MPR')
+      ax[1, 0].set_ylabel('Normalized Fluorescence')
+      ax[1, 0].set_ylim([0, 1])
       fig.savefig('Figures/Unsupervised Samples.png', bbox_inches = 'tight', dpi=500)
       plt.show()
   
@@ -978,10 +981,11 @@ class ML_QuIC:
       fig.suptitle('Classification Comparisons')
       for i, fp_ax in enumerate(fp_plots_to_show):
         ax[i, 1].set_title(models[i])
-        normalized = self.scaler.transform([fp_ax])
+        normalized = fp_ax / np.linalg.norm(fp_ax)
         ax[i, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, normalized, c = 'k')
         ax[i, 1].set_xlabel('Time (Hours)')
-        ax[i, 1].set_ylabel('Scaled Fluorescence')
+        ax[i, 1].set_ylabel('Normalized Fluorescence')
+        ax[i, 1].set_ylim([0, 1])
       
       # Find a universal positive reference
       pos_sample = None
@@ -1000,15 +1004,17 @@ class ML_QuIC:
         raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
       
       ax[0, 0].set_title('Positive Reference Sample')
-      normalized = self.scaler.transform(pos_sample)
+      normalized = pos_sample / np.linalg.norm(pos_sample)
       ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, normalized, c = 'k')
       ax[0, 0].set_xlabel('Time (Hours)')
-      ax[0, 0].set_ylabel('Scaled Fluorescence')
+      ax[0, 0].set_ylabel('Normalized Fluorescence')
+      ax[0, 0].set_ylim([0, 1])
       
       ax[1, 0].set_title('Negative Reference Sample')
-      normalized = self.scaler.transform([neg_sample])
+      normalized = neg_sample / np.linalg.norm(neg_sample)
       ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, normalized, c = 'k')
       ax[1, 0].set_xlabel('Time (Hours)')
-      ax[1, 0].set_ylabel('Scaled Fluorescence')
+      ax[1, 0].set_ylabel('Normalized Fluorescence')
+      ax[1, 0].set_ylim([0, 1])
       fig.savefig('Figures/Supervised Samples.png', bbox_inches='tight', dpi=500)
       plt.show()

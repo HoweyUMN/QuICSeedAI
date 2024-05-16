@@ -9,7 +9,7 @@ import tensorflow as tf
 
 #%%
 ### Import Data and Create Objects to Analyze
-DATA_DIR = '../Data/BigAnalysis'
+DATA_DIR = './Data/BigAnalysis'
 RANDOM_SEED = 7
 
 # Load dataAC
@@ -21,11 +21,11 @@ ml_quic.get_dataset_statistics()
 ### Add 2 KMeans Models
 from Models import KMeansModel
 ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 3,
-                                          file_path= '../SavedModels/Raw/', model_name='kmeans'
+                                          file_path= './SavedModels/Raw/', model_name='kmeans'
                                           ), model_name='KMeans Raw', data_type='raw', tag='Unsupervised')
 from Models import KMeansModel
 ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 3,
-                                          file_path= '../SavedModels/Analysis/', model_name='kmeans'
+                                          file_path= './SavedModels/Analysis/', model_name='kmeans'
                                           ), model_name='KMeans Metrics', data_type='analysis', tag='Unsupervised')
 
 #%%
@@ -40,16 +40,16 @@ ml_quic.add_model(SpectralClustering.SpectralClustering(n_clusters = 3), model_n
 ### SVM
 from Models import SVM
 ml_quic.add_model(SVM.SVM(
-    file_path='../SavedModels/Raw/', model_name='svm'
+    file_path='./SavedModels/Raw/', model_name='svm'
     ), model_name = 'SVM Raw', data_type = 'raw', tag = 'Supervised')
 
-ml_quic.add_model(SVM.SVM(file_path='../SavedModels/Analysis/', model_name='svm'), model_name = 'SVM Metrics', data_type = 'analysis', tag = 'Supervised')
+ml_quic.add_model(SVM.SVM(file_path='./SavedModels/Analysis/', model_name='svm'), model_name = 'SVM Metrics', data_type = 'analysis', tag = 'Supervised')
 
 #%%
 ### MLP
 from Models import MLP
 ml_quic.add_model(MLP.MLP(NDIM = ml_quic.get_num_timesteps_raw(), 
-                          file_path='../SavedModels/Raw/', model_name='mlp'
+                          file_path='./SavedModels/Raw/', model_name='mlp'
                           ), model_name = 'MLP Raw', data_type = 'raw', tag='Supervised')
 
 #%%
@@ -78,23 +78,23 @@ ml_quic.get_group_plots_supervised(tags = ['Supervised'])
 #%%
 ### Test on G Wells
 ml_quic = ml_quic = ML_QuIC.ML_QuIC()
-ml_quic.import_dataset(data_dir='../Data/BigAnalysisGWells');
+ml_quic.import_dataset(data_dir='./Data/BigAnalysisGWells');
 ml_quic.get_dataset_statistics()
 
 ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 3,
-                                          file_path= '../SavedModels/Analysis/', model_name='kmeans'
+                                          file_path= './SavedModels/Analysis/', model_name='kmeans'
                                           ), model_name='KMeans Metrics', data_type='analysis', tag='Unsupervised')
 
 ml_quic.add_model(SVM.SVM(
-    file_path='../SavedModels/Raw/', model_name='svm'
+    file_path='./SavedModels/Raw/', model_name='svm'
     ), model_name = 'SVM Raw', data_type = 'raw', tag = 'Supervised')
 
 ml_quic.add_model(SVM.SVM(
-    file_path='../SavedModels/Analysis/', model_name='svm'
+    file_path='./SavedModels/Analysis/', model_name='svm'
     ), model_name = 'SVM Metrics', data_type = 'analysis', tag = 'Supervised')
 
 ml_quic.add_model(MLP.MLP(NDIM = ml_quic.get_num_timesteps_raw(), 
-                          file_path='../SavedModels/Raw/', model_name='mlp'
+                          file_path='./SavedModels/Raw/', model_name='mlp'
                           ), model_name = 'MLP Raw', data_type = 'raw', tag='Supervised')
 
 ml_quic.separate_train_test(tags=['Supervised', 'Unsupervised'], train_type=3)

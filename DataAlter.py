@@ -27,9 +27,13 @@ mask = mask.astype(bool)
 if not (True in mask):
     raise Exception('Failed to find any samples to keep')
 
-mask_replicate = []
-for sample in replicate.Sample:
-    mask_replicate.append(unused_samples['Sample'].str.contains(sample))
+mask_replicate = np.zeros(replicate.shape[0])
+for sample in range(replicate.shape[0]):
+    mask_replicate[sample] = np.max(unused_samples['Sample'] == replicate['Sample'].iloc[sample])
+
+mask_replicate = mask_replicate.astype(bool)
+if not (True in mask_replicate):
+    raise Exception('Failed to find any samples to keep')
 
 # Separate wells into G (disagreement) and G/GC (Verified)
 raw_separate = raw.iloc[mask]

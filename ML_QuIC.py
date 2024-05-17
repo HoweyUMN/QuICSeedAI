@@ -399,83 +399,36 @@ class ML_QuIC:
 
     return scores
   
-  def evaluate_replicate_performance(self, test_indices_dict = None, model_names = None, tags = None):
-    # If tag is specified, only run given tag
+  def evaluate_replicate_performance(self, test_indices_dict = None, test_data = None, test_labels = None, model_names = None, tags = None):
+    """Evaluates the performance of the selected models on the replicates and attempts to predict the class of a sample
+    
+    Notes:\n
+    test_data takes precendence over test_indices_dict and must include test_labels or will be ignored\n
+    model_names takes precedence over tags"""
+      
+    # If model is not specified, run on all models
+    models = []
+    if model_names is None:
+      models = self.models.keys()
+    else: models = model_names
+
+    # Override previous import if tags are specified and run for those tags
     if (not tags is None) and (model_names is None):
       models = []
       for tag in tags:
         models += self.tags[tag]
-    else:
-      models = model_names
-
-    # Perform analysis for each model
+    
+    # Evaluate replicates for each model in the list
     for model in models:
-
-      # Get the test set to examine
-      if test_indices_dict == None:
-        test_indices = self.testing_indices[model]
-      else:
-        test_indices = test_indices_dict[model]
-        
-      # Get testing data
-      if self.model_dtype[model] == 'raw':
-        test_df = self.raw_dataset.iloc[test_indices]
-      else:
-        test_df = self.analysis_dataset.iloc[test_indices]
-        
-      # Append to dataset for easier function
-      preds_data = self.models[model].predict(self.get_numpy_dataset('raw')[test_indices], self.get_numpy_dataset('labels')[test_indices], binary = True)
-      test_df['Predictions'] = preds_data
-      test_data = self.get_numpy_dataset('labels')[test_indices] # Required to avoid a useless error
-      test_df['True'] = test_data
-      test_df = test_df.iloc[test_indices]
       
-      # Remove controls from dataset for better performance
-      test_df = test_df[~test_df['content_replicate'].str.contains('pos', na = False)]
-      test_df = test_df[~test_df['content_replicate'].str.contains('neg', na = False)]
-      
-      replicates = [] # list of dataframes only containing replicates
-      for sample in self.replicate_data['Sample']:
-        replicate_df = test_df[test_df.content_replicate.str.contains('^' + sample + 'x')]
-        if len(replicate_df) < 3: continue # The replicate was broken up, so we won't get useful information
-        replicates.append(replicate_df)
-
-      max_num_replicates = len(self.replicate_data.columns) - 3 # Remove metadata from count
-
-      # Extract data about each replicate
-      correct_preds = 0
-      correct_by_replicate = np.zeros(max_num_replicates)
-      for replicate_df in replicates:
-        preds = []
-        for i in range(max_num_replicates):
-          if i != 0:
-            # Extract predictions
-            replicate_id = '%02d' % i
-            preds.append(test_df[test_df['content_replicate'].str.contains(replicate_id)]['Predictions'].iloc[0])
-          else:
-            preds.append(test_df[~test_df['content_replicate'].str.contains('x')]['Predictions'].iloc[0])
+      # Get the dataset of samples to evaluate replicate performance if none is provided
+      if test_data is None or test_labels is None:
+        if test_indices_dict is None:
+          test_indices_dict = self.testing_indices[model]
+        test_data = self.get_numpy_dataset(self.model_dtype[model])[test_indices_dict]
+        test_labels = self.get_numpy_dataset('labels')[test_indices_dict]
         
-        # Check how predictions compare
-        sum = 0
-        count = 0
-        for i,pred in enumerate(preds):
-          if pred == -1: continue # Not in dataframe
-
-          count += 1
-          # If prediction is correct, add to sum
-          if (pred == 1 and replicate_df['True'].iloc[0] == 2) or (pred == 0 and replicate_df['True'].iloc[0] < 2):
-            sum += 1
-            correct_by_replicate[i] += 1
-        
-        if round(sum / count) == 1:
-          if replicate_df['True'].iloc[0] == 2:
-            correct_preds += 1
-        else:
-          if replicate_df['True'].iloc[0] < 2:
-            correct_preds += 1
-            
-      print(correct_by_replicate)
-      print(correct_preds / len(replicates))      
+    
         
   def evaluate_fp_performance(self, test_indices_dict = None, model_names = None, tags = None):
     """Evaluates the performance of a model on known false positives in detail. Works for 2 class and 3 class models."""
@@ -779,7 +732,7 @@ class ML_QuIC:
     return fig, ax
   
   def get_group_plots_unsupervised(self, model_names = None, tags = None):
-      """Get plots for models according to their kinds and tags and groups together. Made for blocks of 4 unsupervised, 2 supervised"""
+      """Get plots for models according to their kinds and tags and groups together. Made for blocks of 4 unsupervised"""
 
       # If unspecified, get plots for all models
       models = []
@@ -899,6 +852,7 @@ class ML_QuIC:
       plt.show()
   
   def get_group_plots_supervised(self, model_names = None, tags = None):
+    """Creates a plotting block of a positive/negative reference and 2 supervised models - someday this could be more generalized if helpful"""
       # If unspecified, get plots for all models
       models = []
       if model_names is None:

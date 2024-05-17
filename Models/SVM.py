@@ -9,7 +9,7 @@ import os
 class SVM:
     """A simple interface between a KMeans model and the generic ML-QuIC structure. All the methods are unaltered, just a mask to keep things consistent."""
 
-    def __init__(self, kernel = 'rbf', random_state = 7, file_path = './', model_name = 'svm'):
+    def __init__(self, kernel = 'rbf', random_state = 333, file_path = './', model_name = 'svm'):
         self.model_path = file_path + model_name + '.pkl'
         self.scaler_path = file_path + model_name + '_scaler.pkl'
         self.pca_path = file_path + model_name + '_pca.pkl'

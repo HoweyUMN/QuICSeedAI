@@ -102,6 +102,16 @@ ml_quic.separate_train_test(tags=['Supervised', 'Unsupervised'], train_type=3)
 ### Get Supervised Scores and Plots
 ml_quic.get_model_scores(tags = ['Supervised', 'Unsupervised'])
 
+pred_km, sample_list_km = ml_quic.evaluate_replicate_performance(model='KMeans Metrics')
+pred_svm_r, sample_list_svmr = ml_quic.evaluate_replicate_performance(model='SVM Raw')
+pred_svm_m, sample_list_svmm = ml_quic.evaluate_replicate_performance(model='SVM Metrics')
+pred_mlp, sample_list_mlp = ml_quic.evaluate_replicate_performance(model='MLP Raw')
 
-
+#%%
+print('Model Sample Predictions:')
+print('{:20s} {:20s} {:20s} {:20s} {:20s}'.format('Sample:', 'KMeans Metrics:', 'SVM Raw:', 'SVM Metrics:', 'MLP Raw:'))
+for i in range(len(pred_km)):
+    if sample_list_km[i] != sample_list_mlp[i] or sample_list_mlp[i] != sample_list_svmm[i] or sample_list_svmm[i] != sample_list_svmr[i]:
+        raise Exception('Sample order does not agree!')
+    print('{:20s} {:20s} {:20s} {:20s} {:20s}'.format(sample_list_km[i], pred_km[i], pred_svm_r[i], pred_svm_m[i], pred_mlp[i]))
 # %%

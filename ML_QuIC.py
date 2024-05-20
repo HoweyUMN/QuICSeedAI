@@ -403,8 +403,7 @@ class ML_QuIC:
     """Evaluates the performance of the selected model on the replicates and attempts to predict the class of samples. Requires that 
     
     Notes:\n
-    test_data takes precendence over test_indices and must include test_labels or will be ignored\n
-    model_names takes precedence over tags"""
+    test_data takes precendence over test_indices and must include test_labels or will be ignored"""
     
     # Get the dataset of samples to evaluate replicate performance if none is provided
     if test_data is None or test_labels is None:
@@ -416,14 +415,20 @@ class ML_QuIC:
     if replicate_data is None: replicate_data = self.replicate_data
     
     # Stack each replicate for a given sample into a multi-dimensional list (not array to allow for differing numbers of replicates)
-    data_replicates = []
+    predictions = []
+    sample_list = []
     for sample in replicate_data['Sample']:
-      sample_dilutions = []
+      sample_predictions = 0
+      sample_wells = 0
       for dilution in dilutions:
         sample_frames = test_data[test_data['content_replicate'].str.contains(sample + dilution)]
         dilution_replicates = np.array(sample_frames.drop(columns = ['content_replicate']))
-        sample_dilutions.append(dilution_replicates)
-      data_replicates.append(sample_dilutions)
+        sample_wells += len(dilution_replicates)
+        sample_predictions += np.sum(model.predict(dilution_replicates))
+      predictions.append('{}/{}'.format(sample_predictions, sample_wells))
+      sample_list.append(sample)
+      
+    return predictions, sample_list
         
   def evaluate_fp_performance(self, test_indices_dict = None, model_names = None, tags = None):
     """Evaluates the performance of a model on known false positives in detail. Works for 2 class and 3 class models."""

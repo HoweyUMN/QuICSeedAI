@@ -399,36 +399,31 @@ class ML_QuIC:
 
     return scores
   
-  def evaluate_replicate_performance(self, test_indices_dict = None, test_data = None, test_labels = None, model_names = None, tags = None):
-    """Evaluates the performance of the selected models on the replicates and attempts to predict the class of a sample
+  def evaluate_replicate_performance(self, replicate_data = None, test_indices = None, test_data = None, test_labels = None, model = None, dilutions = ['x01', 'x02', 'x03']):
+    """Evaluates the performance of the selected model on the replicates and attempts to predict the class of samples. Requires that 
     
     Notes:\n
-    test_data takes precendence over test_indices_dict and must include test_labels or will be ignored\n
+    test_data takes precendence over test_indices and must include test_labels or will be ignored\n
     model_names takes precedence over tags"""
-      
-    # If model is not specified, run on all models
-    models = []
-    if model_names is None:
-      models = self.models.keys()
-    else: models = model_names
-
-    # Override previous import if tags are specified and run for those tags
-    if (not tags is None) and (model_names is None):
-      models = []
-      for tag in tags:
-        models += self.tags[tag]
     
-    # Evaluate replicates for each model in the list
-    for model in models:
-      
-      # Get the dataset of samples to evaluate replicate performance if none is provided
-      if test_data is None or test_labels is None:
-        if test_indices_dict is None:
-          test_indices_dict = self.testing_indices[model]
-        test_data = self.get_numpy_dataset(self.model_dtype[model])[test_indices_dict]
-        test_labels = self.get_numpy_dataset('labels')[test_indices_dict]
-        
+    # Get the dataset of samples to evaluate replicate performance if none is provided
+    if test_data is None or test_labels is None:
+      if test_indices is None:
+        test_indices = self.testing_indices[model]
+      test_labels = self.labels.iloc[test_indices]
+      test_data = self.raw_dataset.iloc[test_indices] if self.model_dtype[model] == 'raw' else self.analysis_dataset.iloc[test_indices]
     
+    if replicate_data is None: replicate_data = self.replicate_data
+    
+    # Stack each replicate for a given sample into a multi-dimensional list (not array to allow for differing numbers of replicates)
+    data_replicates = []
+    for sample in replicate_data['Sample']:
+      sample_dilutions = []
+      for dilution in dilutions:
+        sample_frames = test_data[test_data['content_replicate'].str.contains(sample + dilution)]
+        dilution_replicates = np.array(sample_frames.drop(columns = ['content_replicate']))
+        sample_dilutions.append(dilution_replicates)
+      data_replicates.append(sample_dilutions)
         
   def evaluate_fp_performance(self, test_indices_dict = None, model_names = None, tags = None):
     """Evaluates the performance of a model on known false positives in detail. Works for 2 class and 3 class models."""

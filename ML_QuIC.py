@@ -848,115 +848,115 @@ class ML_QuIC:
   
   def get_group_plots_supervised(self, model_names = None, tags = None):
     """Creates a plotting block of a positive/negative reference and 2 supervised models - someday this could be more generalized if helpful"""
-      # If unspecified, get plots for all models
+    # If unspecified, get plots for all models
+    models = []
+    if model_names is None:
+      models = self.models.keys()
+    else: models = model_names
+
+    # Only get plots for specified model groups by tag
+    if (not tags is None) and (model_names is None):
       models = []
-      if model_names is None:
-        models = self.models.keys()
-      else: models = model_names
+      for tag in tags:
+        models += self.tags[tag]
 
-      # Only get plots for specified model groups by tag
-      if (not tags is None) and (model_names is None):
-        models = []
-        for tag in tags:
-          models += self.tags[tag]
-
-      # Predictions for all models in list
-      preds = self.get_model_predictions(model_names=models)
-      
-      # Define plot structure
-      cm_fig, cm_ax = plt.subplots(1, 2)
-      roc_fig, roc_ax = plt.subplots(1, 1)
-      roc_ax.set_xlabel('False Positive Rate')
-      roc_ax.set_ylabel('True Positive Rate')
+    # Predictions for all models in list
+    preds = self.get_model_predictions(model_names=models)
     
-      # Set titles for figures   
-      roc_fig.suptitle('ROC Curves for Supervised Models')
-      cm_fig.suptitle('Supervised Models Confusion Matrices')
-      
-      # Supervised block handled differently
-      fp_plots_to_show = []
-      pos_correct_mask = []
-      neg_correct_mask = []
-      for i, model in enumerate(models):
-        if model == 'MLP Raw':
-          continue
-            
-        # Select predictions and true labels for this model
-        y_pred = preds[model]
-        y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
-                    
-        # Convert all labels to a binary format
-        if np.max(y_pred) > 1:
-          y_cm = np.array(np.rint(y_true) == 2, dtype = int)
-          y_cm_pred = np.array(np.rint(y_pred) == 2, dtype=int)
-        else:
-          y_cm_pred = y_pred 
-          y_cm = y_true = np.asarray(y_true == 2, dtype=int)
-
-        # Generate the ROC curve and add to axis
-        fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
-        auc = roc_auc_score(y_cm, y_cm_pred)
-        roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
-        roc_ax.legend(loc=0, fontsize = 18)
-        
-        cm_ax[i % 2].set_title(model)
-        ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
-        
-        # Get data for plotting fps and comparison with positive sample
-        this_pos_correct_mask = np.zeros(len(y_cm))
-        this_neg_correct_mask = np.zeros(len(y_cm))
-        for j in range(len(y_cm)):
-          if y_cm[j] == 1 and y_cm_pred[j] == 1:
-            this_pos_correct_mask[j] = 1
-          elif y_cm[j] == 0 and y_cm_pred[j] == 0:
-            this_neg_correct_mask[j] = 1
-            
-        pos_correct_mask.append(this_pos_correct_mask.astype(bool))
-        neg_correct_mask.append(this_neg_correct_mask.astype(bool))
-        fp_plots_to_show.append(self.fp_plots[model])
-       
-      cm_fig.savefig('Figures/Supervised CMs.png', dpi=500, bbox_inches='tight')
-      roc_fig.savefig('Figures/Supervised ROC.png', dpi=500, bbox_inches='tight')
-       
-      # Using last version of model here, should be the same indices ideally TODO - Enforce this?
-      samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
-      
-      # Create plot and collect axes
-      fig, ax = plt.subplots(2, 2)
-      fig.suptitle('False Positive Classification Comparisons')
-      for i, fp_ax in enumerate(fp_plots_to_show):
-        ax[i, 1].set_title(models[i])
-        ax[i, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
-        ax[i, 1].set_xlabel('Time (Hours)')
-        ax[i, 1].set_ylabel('Fluorescence (A.U.)')
-        ax[i, 1].set_ylim([0, self.max_fluorescence])
-      
-      # Find a universal positive reference
-      pos_sample = None
-      for i in range(len(samples)):
-        if pos_correct_mask[0][i] and pos_correct_mask[1][i]:
-          pos_sample = samples[i]
-      
-      # Find a universal negative reference
-      for i in range(len(samples)):
-        if neg_correct_mask[0][i] and neg_correct_mask[1][i]:
-          neg_sample = samples[i]
+    # Define plot structure
+    cm_fig, cm_ax = plt.subplots(1, 2)
+    roc_fig, roc_ax = plt.subplots(1, 1)
+    roc_ax.set_xlabel('False Positive Rate')
+    roc_ax.set_ylabel('True Positive Rate')
+  
+    # Set titles for figures   
+    roc_fig.suptitle('ROC Curves for Supervised Models')
+    cm_fig.suptitle('Supervised Models Confusion Matrices')
+    
+    # Supervised block handled differently
+    fp_plots_to_show = []
+    pos_correct_mask = []
+    neg_correct_mask = []
+    for i, model in enumerate(models):
+      if model == 'MLP Raw':
+        continue
           
-      # If we can't find one of the references, we stop early
-      if pos_sample is None or neg_sample is None:
-        sample_type = 'positive' if pos_sample is None else 'negative'
-        raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
+      # Select predictions and true labels for this model
+      y_pred = preds[model]
+      y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
+                  
+      # Convert all labels to a binary format
+      if np.max(y_pred) > 1:
+        y_cm = np.array(np.rint(y_true) == 2, dtype = int)
+        y_cm_pred = np.array(np.rint(y_pred) == 2, dtype=int)
+      else:
+        y_cm_pred = y_pred 
+        y_cm = y_true = np.asarray(y_true == 2, dtype=int)
+
+      # Generate the ROC curve and add to axis
+      fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
+      auc = roc_auc_score(y_cm, y_cm_pred)
+      roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
+      roc_ax.legend(loc=0, fontsize = 18)
       
-      ax[0, 0].set_title('Positive Reference Sample')
-      ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample, c = 'k')
-      ax[0, 0].set_xlabel('Time (Hours)')
-      ax[0, 0].set_ylabel('Fluorescence (A.U.)')
-      ax[0, 0].set_ylim([0, self.max_fluorescence])
+      cm_ax[i % 2].set_title(model)
+      ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
       
-      ax[1, 0].set_title('Negative Reference Sample')
-      ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
-      ax[1, 0].set_xlabel('Time (Hours)')
-      ax[1, 0].set_ylabel('Fluorescence (A.U.)')
-      ax[1, 0].set_ylim([0, self.max_fluorescence])
-      fig.savefig('Figures/Supervised Samples.png', bbox_inches='tight', dpi=500)
-      plt.show()
+      # Get data for plotting fps and comparison with positive sample
+      this_pos_correct_mask = np.zeros(len(y_cm))
+      this_neg_correct_mask = np.zeros(len(y_cm))
+      for j in range(len(y_cm)):
+        if y_cm[j] == 1 and y_cm_pred[j] == 1:
+          this_pos_correct_mask[j] = 1
+        elif y_cm[j] == 0 and y_cm_pred[j] == 0:
+          this_neg_correct_mask[j] = 1
+          
+      pos_correct_mask.append(this_pos_correct_mask.astype(bool))
+      neg_correct_mask.append(this_neg_correct_mask.astype(bool))
+      fp_plots_to_show.append(self.fp_plots[model])
+      
+    cm_fig.savefig('Figures/Supervised CMs.png', dpi=500, bbox_inches='tight')
+    roc_fig.savefig('Figures/Supervised ROC.png', dpi=500, bbox_inches='tight')
+      
+    # Using last version of model here, should be the same indices ideally TODO - Enforce this?
+    samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
+    
+    # Create plot and collect axes
+    fig, ax = plt.subplots(2, 2)
+    fig.suptitle('False Positive Classification Comparisons')
+    for i, fp_ax in enumerate(fp_plots_to_show):
+      ax[i, 1].set_title(models[i])
+      ax[i, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
+      ax[i, 1].set_xlabel('Time (Hours)')
+      ax[i, 1].set_ylabel('Fluorescence (A.U.)')
+      ax[i, 1].set_ylim([0, self.max_fluorescence])
+    
+    # Find a universal positive reference
+    pos_sample = None
+    for i in range(len(samples)):
+      if pos_correct_mask[0][i] and pos_correct_mask[1][i]:
+        pos_sample = samples[i]
+    
+    # Find a universal negative reference
+    for i in range(len(samples)):
+      if neg_correct_mask[0][i] and neg_correct_mask[1][i]:
+        neg_sample = samples[i]
+        
+    # If we can't find one of the references, we stop early
+    if pos_sample is None or neg_sample is None:
+      sample_type = 'positive' if pos_sample is None else 'negative'
+      raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
+    
+    ax[0, 0].set_title('Positive Reference Sample')
+    ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample, c = 'k')
+    ax[0, 0].set_xlabel('Time (Hours)')
+    ax[0, 0].set_ylabel('Fluorescence (A.U.)')
+    ax[0, 0].set_ylim([0, self.max_fluorescence])
+    
+    ax[1, 0].set_title('Negative Reference Sample')
+    ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
+    ax[1, 0].set_xlabel('Time (Hours)')
+    ax[1, 0].set_ylabel('Fluorescence (A.U.)')
+    ax[1, 0].set_ylim([0, self.max_fluorescence])
+    fig.savefig('Figures/Supervised Samples.png', bbox_inches='tight', dpi=500)
+    plt.show()

@@ -528,6 +528,7 @@ class ML_QuIC:
       ax.set_xlabel('Time (Hours)')
       ax.set_ylabel('Fluorescence (A.U.)')
       ax.set_ylim([0, self.max_fluorescence])
+      ax.set_xlim([0, self.get_num_timesteps_raw()])
       plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
       plt.show()
       self.fp_plots[model] = self.get_numpy_dataset('raw')[missed_fp_indices[np.random.randint(0, len(missed_fp_indices))]]
@@ -822,6 +823,7 @@ class ML_QuIC:
         ax[i%2, 1 + int(i/2)].set_xlabel('Time (Hours)')
         ax[i%2, 1 + int(i/2)].set_ylabel('Fluorescence (A.U.)')
         ax[i%2, 1 + int(i/2)].set_ylim([0, self.max_fluorescence])
+        ax[i%2, 1 + int(i/2)].set_xlim([0, self.get_num_timesteps_raw()])
       
       # Find a universal positive reference
       pos_sample = None
@@ -847,11 +849,13 @@ class ML_QuIC:
       ax[0, 0].set_xlabel('Time (Hours)')
       ax[0, 0].set_ylabel('Fluorescence (A.U.)')
       ax[0, 0].set_ylim([0, self.max_fluorescence])
+      ax[0, 0].set_xlim([0, self.get_num_timesteps_raw()])
       ax[1, 0].set_title('Negative Reference Sample')
       ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, neg_sample, c = 'k')
       ax[1, 0].set_xlabel('Time (Hours)')
       ax[1, 0].set_ylabel('Fluorescence (A.U.)')
       ax[1, 0].set_ylim([0, self.max_fluorescence])
+      ax[1, 0].set_xlim([0, self.get_num_timesteps_raw()])
       fig.savefig('Figures/Unsupervised Samples.png', bbox_inches = 'tight', dpi=500)
       plt.show()
   
@@ -939,6 +943,7 @@ class ML_QuIC:
       ax[i, 1].set_xlabel('Time (Hours)')
       ax[i, 1].set_ylabel('Fluorescence (A.U.)')
       ax[i, 1].set_ylim([0, self.max_fluorescence])
+      ax[i, 1].set_xlim([0, self.get_num_timesteps_raw()])
     
     # Find a universal positive reference
     pos_sample = None
@@ -961,11 +966,13 @@ class ML_QuIC:
     ax[0, 0].set_xlabel('Time (Hours)')
     ax[0, 0].set_ylabel('Fluorescence (A.U.)')
     ax[0, 0].set_ylim([0, self.max_fluorescence])
+    ax[0, 0].set_xlim([0, self.get_num_timesteps_raw()])
     
     ax[1, 0].set_title('Negative Reference Sample')
     ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
     ax[1, 0].set_xlabel('Time (Hours)')
     ax[1, 0].set_ylabel('Fluorescence (A.U.)')
     ax[1, 0].set_ylim([0, self.max_fluorescence])
+    ax[1, 0].set_xlim([0, self.get_num_timesteps_raw()])
     fig.savefig('Figures/Supervised Samples.png', bbox_inches='tight', dpi=500)
     plt.show()

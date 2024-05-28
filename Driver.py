@@ -77,21 +77,15 @@ ml_quic.get_group_plots_supervised(tags = ['Supervised'])
 
 #%%
 ### Test on G Wells
-ml_quic = ml_quic = ML_QuIC.ML_QuIC()
+import ML_QuIC as ML_QuIC
+imp.reload(ML_QuIC)
+ml_quic = ML_QuIC.ML_QuIC()
 ml_quic.import_dataset(data_dir='./Data/BigAnalysisGWells');
 ml_quic.get_dataset_statistics()
 
 ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 3,
                                           file_path= './SavedModels/Analysis/', model_name='kmeans'
                                           ), model_name='KMeans Metrics', data_type='analysis', tag='Unsupervised')
-
-ml_quic.add_model(SVM.SVM(
-    file_path='./SavedModels/Raw/', model_name='svm'
-    ), model_name = 'SVM Raw', data_type = 'raw', tag = 'Supervised')
-
-ml_quic.add_model(SVM.SVM(
-    file_path='./SavedModels/Analysis/', model_name='svm'
-    ), model_name = 'SVM Metrics', data_type = 'analysis', tag = 'Supervised')
 
 ml_quic.add_model(MLP.MLP(NDIM = ml_quic.get_num_timesteps_raw(), 
                           file_path='./SavedModels/Raw/', model_name='mlp'
@@ -103,15 +97,13 @@ ml_quic.separate_train_test(tags=['Supervised', 'Unsupervised'], train_type=3)
 ml_quic.get_model_scores(tags = ['Supervised', 'Unsupervised'])
 
 pred_km, sample_list_km = ml_quic.evaluate_replicate_performance(model='KMeans Metrics')
-pred_svm_r, sample_list_svmr = ml_quic.evaluate_replicate_performance(model='SVM Raw')
-pred_svm_m, sample_list_svmm = ml_quic.evaluate_replicate_performance(model='SVM Metrics')
 pred_mlp, sample_list_mlp = ml_quic.evaluate_replicate_performance(model='MLP Raw')
 
-#%%
 print('Model Sample Predictions:')
-print('{:20s} {:20s} {:20s} {:20s} {:20s}'.format('Sample:', 'KMeans Metrics:', 'SVM Raw:', 'SVM Metrics:', 'MLP Raw:'))
+print('\n{:20s} {:20s} {:20s}'.format('Sample:', 'KMeans Metrics:', 'MLP Raw:'))
 for i in range(len(pred_km)):
-    if sample_list_km[i] != sample_list_mlp[i] or sample_list_mlp[i] != sample_list_svmm[i] or sample_list_svmm[i] != sample_list_svmr[i]:
+    if sample_list_km[i] != sample_list_mlp[i]:
         raise Exception('Sample order does not agree!')
-    print('{:20s} {:20s} {:20s} {:20s} {:20s}'.format(sample_list_km[i], pred_km[i], pred_svm_r[i], pred_svm_m[i], pred_mlp[i]))
+    print('{:20s} {:20s} {:20s}'.format(sample_list_km[i], pred_km[i], pred_mlp[i]))
+
 # %%

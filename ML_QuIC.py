@@ -399,7 +399,7 @@ class ML_QuIC:
 
     return scores
   
-  def evaluate_replicate_performance(self, replicate_data = None, test_indices = None, test_data = None, test_labels = None, model = None, dilutions = ['x01', 'x02', 'x03']):
+  def evaluate_replicate_performance(self, replicate_data = None, test_indices = None, test_data = None, test_labels = None, model = None, dilutions = ['', 'x01', 'x02', 'x03']):
     """Evaluates the performance of the selected model on the replicates and attempts to predict the class of samples. Requires that 
     
     Notes:\n
@@ -418,15 +418,19 @@ class ML_QuIC:
     predictions = []
     sample_list = []
     for sample in replicate_data['Sample']:
-      sample_predictions = 0
-      sample_wells = 0
       for dilution in dilutions:
-        sample_frames = test_data[test_data['content_replicate'].str.contains(sample + dilution)]
+        sample_frames = test_data[test_data['content_replicate'].str.contains(sample + dilution + '_')]
+        
+        # Skip non-GWell items
+        if len(sample_frames) == 0:
+          continue
+        
+        sample_labels = test_labels[test_data['content_replicate'].str.contains(sample + dilution + '_')]
         dilution_replicates = np.array(sample_frames.drop(columns = ['content_replicate']))
-        sample_wells += len(dilution_replicates)
-        sample_predictions += np.sum(model.predict(dilution_replicates))
-      predictions.append('{}/{}'.format(sample_predictions, sample_wells))
-      sample_list.append(sample)
+        sample_wells = len(dilution_replicates)
+        sample_predictions = np.sum(self.models[model].predict(dilution_replicates, labels = np.array(sample_labels), binary=True))
+        predictions.append('{}/{}'.format(sample_predictions, sample_wells))
+        sample_list.append(sample + dilution)
       
     return predictions, sample_list
         

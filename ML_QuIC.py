@@ -186,7 +186,7 @@ class ML_QuIC:
 
     return [negatives, fps, positives, control_wells, data_wells]
 
-  def separate_train_test(self, seed = 7, test_size = 0.1, train_type = 0, model_names = None, tags = None):
+  def separate_train_test(self, seed = 7, test_size = 0.1, train_type = 0, model_names = None, tags = None, file_loc = './TrainTest'):
     """Separates imported data into a training set and a testing set.\n
     train_type: 0 - Mix of samples, 1 is positive samples only, 2 is negative samples only, 3 is all data is trained on. If only pos/neg is used, 
     test size is how many of the training sample type to withold\n
@@ -207,10 +207,10 @@ class ML_QuIC:
 
     model_list = copy.copy(models)
     for model in model_list:
-      if os.path.exists('./TrainTest/' + model + '/train.csv') and os.path.exists('./TrainTest/' + model + './test.csv'):
+      if os.path.exists(file_loc + '/' + model + '/train.csv') and os.path.exists(file_loc + '/' + model + './test.csv'):
         models.remove(model)
-        self.training_indices[model] = np.loadtxt('./TrainTest/' + model + '/train.csv', delimiter=',', dtype=int)
-        self.testing_indices[model] = np.loadtxt('./TrainTest/' + model + '/test.csv', delimiter=',', dtype=int)
+        self.training_indices[model] = np.loadtxt(file_loc + '/' + model + '/train.csv', delimiter=',', dtype=int)
+        self.testing_indices[model] = np.loadtxt(file_loc + '/' + model + '/test.csv', delimiter=',', dtype=int)
       
     if len(models) == 0:
       return [self.training_indices, self.testing_indices]
@@ -255,10 +255,10 @@ class ML_QuIC:
     for model in models:
       self.training_indices[model] = train_indices
       self.testing_indices[model] = test_indices
-      if not os.path.exists('./TrainTest/' + model):
-        os.makedirs('./TrainTest/' + model)
-      np.savetxt('./TrainTest/' + model + '/train.csv', train_indices, delimiter = ',')
-      np.savetxt('./TrainTest/' + model + '/test.csv', test_indices, delimiter = ',')
+      if not os.path.exists(file_loc + '/' + model):
+        os.makedirs(file_loc + '/' + model)
+      np.savetxt(file_loc + '/' + model + '/train.csv', train_indices, delimiter = ',')
+      np.savetxt(file_loc + '/' + model + '/test.csv', test_indices, delimiter = ',')
 
     return [self.training_indices, self.testing_indices]
   

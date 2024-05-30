@@ -23,6 +23,7 @@ import multiprocessing
 import seaborn as sns
 from sklearn.metrics import RocCurveDisplay, roc_auc_score, roc_curve
 import keras
+import copy
 
 # base = importr('base')
 # utils = importr('utils')
@@ -204,6 +205,16 @@ class ML_QuIC:
       for tag in tags:
         models += self.tags[tag]
 
+    model_list = copy.copy(models)
+    for model in model_list:
+      if os.path.exists('./TrainTest/' + model + '/train.csv') and os.path.exists('./TrainTest/' + model + './test.csv'):
+        models.remove(model)
+        self.training_indices[model] = np.loadtxt('./TrainTest/' + model + '/train.csv', delimiter=',', dtype=int)
+        self.testing_indices[model] = np.loadtxt('./TrainTest/' + model + '/test.csv', delimiter=',', dtype=int)
+      
+    if len(models) == 0:
+      return [self.training_indices, self.testing_indices]
+
     # Train on only positive samples and test on mixed dataset
     if train_type == 1:
       pos_indices = np.array(np.where(self.labels == 2)[0])
@@ -240,10 +251,14 @@ class ML_QuIC:
     else:
       raise Exception('Invalid argument, train_type must be 0, 1, 2, or 3!')
 
-    # Ensure this is consitent for all models passed in
+    # Ensure this is consitent for all models passed in and saved for later
     for model in models:
       self.training_indices[model] = train_indices
       self.testing_indices[model] = test_indices
+      if not os.path.exists('./TrainTest/' + model):
+        os.makedirs('./TrainTest/' + model)
+      np.savetxt('./TrainTest/' + model + '/train.csv', train_indices, delimiter = ',')
+      np.savetxt('./TrainTest/' + model + '/test.csv', test_indices, delimiter = ',')
 
     return [self.training_indices, self.testing_indices]
   

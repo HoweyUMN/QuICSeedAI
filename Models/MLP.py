@@ -27,7 +27,7 @@ class MLP:
             input_layer = Input(shape=NDIM)
             dense = Dense(NDIM, activation = 'relu')(input_layer)
             # dense = Dropout(0.5)(dense)
-            dense = Dense(2 * NDIM, activation = 'relu')(dense)
+            dense = Dense(NDIM, activation = 'relu')(dense)
             # dense = Dropout(0.5)(dense)
             dense = Dense(NDIM, activation = 'relu')(dense)
             # dense = Dropout(0.5)(dense)

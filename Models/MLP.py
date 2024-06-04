@@ -25,9 +25,9 @@ class MLP:
             
         else: # Train new if can't find necessary components
             input_layer = Input(shape=NDIM)
-            dense = Dense(NDIM, activation = 'relu')(input_layer)
+            dense = Dense(2 * NDIM, activation = 'relu')(input_layer)
             # dense = Dropout(0.5)(dense)
-            dense = Dense(NDIM, activation = 'relu')(dense)
+            dense = Dense(2 * NDIM, activation = 'relu')(dense)
             # dense = Dropout(0.5)(dense)
             dense = Dense(NDIM, activation = 'relu')(dense)
             # dense = Dropout(0.5)(dense)
@@ -60,7 +60,7 @@ class MLP:
             self.model.compile(optimizer = tf.keras.optimizers.Adam(learning_rate), loss = loss)
 
             if callbacks == None:
-                # callbacks = [keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, mode='min', restore_best_weights = True)]
+                callbacks = [keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, mode='min', restore_best_weights = True)]
                 pass
 
             self.model.fit(

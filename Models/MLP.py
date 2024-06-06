@@ -40,8 +40,8 @@ class MLP:
         print('\MLP Model Loaded:')
         print(type(self.model))
 
-    def fit(self, learning_rate=1e-6, loss = 'categorical_crossentropy',
-            x = None, y = None, batch_size = 128, epochs = 400, verbose = 0, callbacks = None, validation_split = 0.1,
+    def fit(self, learning_rate=1e-2, loss = 'categorical_crossentropy',
+            x = None, y = None, batch_size = 64, epochs = 400, verbose = 0, callbacks = None, validation_split = 0.1,
             validation_data = None, shuffle = True, class_weight = None, sample_weight=None, initial_epoch=0, 
             steps_per_epoch = None, validation_steps = None, validation_batch_size = None, validation_freq = 1, 
             max_queue_size = 10, workers = 1, use_multiprocessing = True):
@@ -61,9 +61,8 @@ class MLP:
 
             if callbacks == None:
                 callbacks = [keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, mode='min', restore_best_weights = True)]
-                pass
 
-            self.model.fit(
+            history = self.model.fit(
                 x,
                 y,
                 batch_size,
@@ -84,6 +83,15 @@ class MLP:
                 workers,
                 use_multiprocessing,
             )
+            
+            import matplotlib.pyplot as plt
+            plt.plot(history.history['loss'])
+            plt.plot(history.history['val_loss'])
+            plt.title('model loss')
+            plt.ylabel('loss')
+            plt.xlabel('epoch')
+            plt.legend(['train', 'val'], loc='upper left')
+            plt.savefig('./Loss.png')
             
             self.model.save(self.model_path)
 

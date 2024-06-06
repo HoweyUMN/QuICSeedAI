@@ -8,4 +8,4 @@ cuda-repo-wsl-ubuntu-12-3-local_12.3.1-1_amd64.deb
 *.html
 .vscode/launch.json
 *.h5
-TrainTest/*/*.csv
+TrainTest/*/*

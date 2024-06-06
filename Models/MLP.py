@@ -40,7 +40,7 @@ class MLP:
         print('\MLP Model Loaded:')
         print(type(self.model))
 
-    def fit(self, learning_rate=1e-2, loss = 'categorical_crossentropy',
+    def fit(self, learning_rate=5e-3, loss = 'categorical_crossentropy',
             x = None, y = None, batch_size = 64, epochs = 400, verbose = 0, callbacks = None, validation_split = 0.1,
             validation_data = None, shuffle = True, class_weight = None, sample_weight=None, initial_epoch=0, 
             steps_per_epoch = None, validation_steps = None, validation_batch_size = None, validation_freq = 1, 

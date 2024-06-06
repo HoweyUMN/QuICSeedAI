@@ -21,7 +21,7 @@ class SVM:
             self.pca = pickle.load(open(self.pca_path, 'rb'))
             self.pretrained = True
         else: # Generate new if doesn't exist
-            self.model = SVC(kernel=kernel, random_state=random_state)
+            self.model = SVC(kernel=kernel, random_state=random_state, gamma = 'auto', probability=True)
             self.scaler = StandardScaler()
             self.pca = PCA(n_components=4)
         

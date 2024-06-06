@@ -23,7 +23,7 @@ class KMeansModel:
             self.pretrained = True
         
         else: # Generate new if doesn't exist
-            self.model = KMeans(n_clusters=n_clusters, init = (n_clusters, 4), random_state=random_state)
+            self.model = KMeans(n_clusters=n_clusters, init='random', max_iter=500, n_init=150, random_state=random_state)
             self.pca = PCA(n_components=4)
             self.scaler = StandardScaler()
             

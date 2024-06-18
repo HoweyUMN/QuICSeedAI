@@ -674,7 +674,7 @@ class ML_QuIC:
       pred_binary = (y_pred >= 1.5)
 
       # Plot confusion matrix
-      ConfusionMatrixDisplay.from_predictions(y_true=y_binary, y_pred=pred_binary, ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'])
+      ConfusionMatrixDisplay.from_predictions(y_true=y_binary, y_pred=pred_binary, ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'], colorbar='False')
       cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_binary, y_pred=pred_binary, normalize='true', display_labels=['Negative', 'Positive'], colorbar='False').figure_
       cm_fig.suptitle(model + ' Confusion Matrix')
       cm_fig.savefig('Figures/' + model + ' Confusion Matrix.png', bbox_inches='tight', dpi=500)
@@ -694,6 +694,8 @@ class ML_QuIC:
       roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
       roc_ax.legend(loc=0, fontsize = 18)
       roc_ax.set_title('ROC Curve for ' + model)
+      roc_ax.set_xlabel('False Positive Rate')
+      roc_ax.set_ylabel('True Positive Rate')
       roc_fig.savefig('./Figures/' + model + ' ROC.png', dpi=500, bbox_inches = 'tight')
 
       # Obtain the testing data for reference

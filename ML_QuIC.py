@@ -17,7 +17,9 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import classification_report, f1_score, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
-plt.rcParams.update({'font.size': 18})
+plt.rcParams.update({'font.size': 28})
+plt.rcParams['lines.linewidth'] = 3
+plt.rcParams['axes.linewidth'] = 3
 from sklearn.preprocessing import StandardScaler
 import multiprocessing
 import seaborn as sns
@@ -37,7 +39,7 @@ class ML_QuIC:
   on RT-Quic data. R processing is currently unimplemented.
 
   \nAuthor - Kyle Howey
-  \nVersion - January 11, 2024"""
+  \nVersion - July 15, 2024"""
 
   def __init__(self):
     # Reset backend session
@@ -84,9 +86,6 @@ class ML_QuIC:
     
     self.fp_plots = {}
     """Stores false positive plots for unified plotting"""
-    
-    self.max_fluorescence = 0
-    "Store a maximum fluorescence value for use with plotting"
       
   def import_dataset(self, data_dir = './Data/', folders = None):
     """Takes in the directory data is stored in and the selected folder names 
@@ -147,9 +146,6 @@ class ML_QuIC:
     self.analysis_dataset = analysis
     self.labels = metadata['final']
     self.replicate_data = replicates
-    
-    # Fit a standard scaler to the raw data for plots
-    self.max_fluorescence = np.max(self.get_numpy_dataset())
 
     return [raw_data, metadata, analysis]
   
@@ -526,24 +522,53 @@ class ML_QuIC:
       print('Average MPR: {}'.format(mpr_cor))
       print('Average MS: {}'.format(ms_cor))
       
+      # Select different subsets of datasets with interesting classification results
       incorrect_indices[model] = test_indices[preds != y_test_binary]
-      
-       # Plot some examples
-      fig, ax = plt.subplots(1, 1)
-      
       missed_fp_indices = test_indices[y_test == 1]
       missed_fp_indices = missed_fp_indices[preds_fp == 1] # FP classified as Pos
+      correct_p_indices = test_indices[np.logical_and(preds == 1, y_test == 2)]
+      correct_n_indices = test_indices[np.logical_and(y_test == 0, preds == 0)]
       
+      # Get reactions to plot
+      neg_to_plot = self.get_numpy_dataset('raw')[correct_n_indices[0]]
+      pos_to_plot = self.get_numpy_dataset('raw')[correct_p_indices[0]]
+      fp_to_plot = self.get_numpy_dataset('raw')[missed_fp_indices[0]]
+      
+      max_flour = np.max([np.max(neg_to_plot), np.max(pos_to_plot), np.max(fp_to_plot)])
+      
+      # Plot correctly classified negative
+      fig, ax = plt.subplots(1, 1)
+      ax.set_title('Negative Reference Sample - ' + model)
+      ax.plot(np.arange(self.get_num_timesteps_raw()) * .75, neg_to_plot, c = 'k')
+      ax.set_xlabel('Time (Hours)')
+      ax.set_ylabel('Fluorescence (A.U.)')
+      ax.set_xlim([0, self.get_num_timesteps_raw() *.75])
+      ax.set_ylim([0, max_flour])
+      plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_NRSs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
+      plt.show()
+      
+      # Plot correctly classified positive
+      fig, ax = plt.subplots(1, 1)
+      ax.set_title('Positive Reference Sample - ' + model)
+      ax.plot(np.arange(self.get_num_timesteps_raw()) * .75, pos_to_plot, c = 'k')
+      ax.set_xlabel('Time (Hours)')
+      ax.set_ylabel('Fluorescence (A.U.)')
+      ax.set_xlim([0, self.get_num_timesteps_raw() *.75])
+      ax.set_ylim([0, max_flour])
+      plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_PRSs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
+      plt.show()
+      
+      # Plot misclassified false positive
+      fig, ax = plt.subplots(1, 1)
       if len(missed_fp_indices) < 1: 
         print('Insufficient missed false positives to plot, attempting replacement with missed positive sample')
         missed_fp_indices = test_indices[np.logical_and(y_test_binary == 1, preds == 0)]
-      ax.set_title('Misclassified FP - ' + model, fontsize = 18)
-      fp_to_plot = self.get_numpy_dataset('raw')[missed_fp_indices[0]]
+      ax.set_title('Misclassified FP - ' + model)
       ax.plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_to_plot, c = 'k')
       ax.set_xlabel('Time (Hours)')
       ax.set_ylabel('Fluorescence (A.U.)')
-      ax.set_ylim([0, self.max_fluorescence])
       ax.set_xlim([0, self.get_num_timesteps_raw() *.75])
+      ax.set_ylim([0, max_flour])
       plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
       plt.show()
       self.fp_plots[model] = self.get_numpy_dataset('raw')[missed_fp_indices[np.random.randint(0, len(missed_fp_indices))]]
@@ -820,6 +845,7 @@ class ML_QuIC:
         roc_ax.legend(loc=0, fontsize = 12)
         
         cm_ax[i % 2, int(i / 2)].set_title(model)
+        cm_ax[i % 2, int(i / 2)].set_title(model)
         ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2, int(i / 2)], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
 
         # Get data for plotting fps and comparison with positive sample
@@ -830,17 +856,6 @@ class ML_QuIC:
       
       # Using last version of model here, should be the same indices ideally TODO - Enforce this?
       samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
-      
-      # Create plot and collect axes
-      fig, ax = plt.subplots(2, 3)
-      fig.suptitle('False Positive Classification Comparisons')
-      for i, fp_ax in enumerate(fp_plots_to_show):
-        ax[i%2, 1 + int(i/2)].set_title(models[i])
-        ax[i%2, 1 + int(i/2)].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
-        ax[i%2, 1 + int(i/2)].set_xlabel('Time (Hours)')
-        ax[i%2, 1 + int(i/2)].set_ylabel('Fluorescence (A.U.)')
-        ax[i%2, 1 + int(i/2)].set_ylim([0, self.max_fluorescence])
-        ax[i%2, 1 + int(i/2)].set_xlim([0, self.get_num_timesteps_raw() *.75])
       
       # Find a universal positive reference
       pos_sample = None
@@ -861,19 +876,50 @@ class ML_QuIC:
         sample_type = 'positive' if pos_sample is None else 'negative'
         raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
       
+      # Create plot and collect axes
+      fig, ax = plt.subplots(2, 3)
+      fig.suptitle('False Positive Classification Comparisons')
+      max_flour = np.max([np.max(fp_plots_to_show), np.max(pos_sample), np.max(neg_sample)])
+  
+      # Plot misclassified fps
+      for i, fp_ax in enumerate(fp_plots_to_show):
+        ax[i%2, 1 + int(i/2)].set_title(models[i])
+        ax[i%2, 1 + int(i/2)].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
+        ax[i%2, 1 + int(i/2)].set_xlabel('Time (Hours)')
+        ax[i%2, 1 + int(i/2)].set_ylabel('Fluorescence (A.U.)')
+        ax[i%2, 1 + int(i/2)].set_ylim([0, max_flour])
+        ax[i%2, 1 + int(i/2)].set_xlim([0, self.get_num_timesteps_raw() *.75])
+      
+      # Plot the reference samples
       ax[0, 0].set_title('Positive Reference Sample')
       ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, pos_sample, c = 'k')
       ax[0, 0].set_xlabel('Time (Hours)')
       ax[0, 0].set_ylabel('Fluorescence (A.U.)')
-      ax[0, 0].set_ylim([0, self.max_fluorescence])
+      ax[0, 0].set_ylim([0, max_flour])
       ax[0, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
       ax[1, 0].set_title('Negative Reference Sample')
       ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, neg_sample, c = 'k')
       ax[1, 0].set_xlabel('Time (Hours)')
       ax[1, 0].set_ylabel('Fluorescence (A.U.)')
-      ax[1, 0].set_ylim([0, self.max_fluorescence])
+      ax[1, 0].set_ylim([0, max_flour])
       ax[1, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
       fig.savefig('Figures/Unsupervised Samples.png', bbox_inches = 'tight', dpi=500)
+      plt.show()
+      
+      plt.title('Positive Reference Sample', fontdict={'fontsize':30})
+      plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample, c = 'k')
+      plt.xlabel('Time (Hours)')
+      plt.ylabel('Fluorescence (A.U.)')
+      plt.ylim([0, max_flour])
+      plt.xlim([0, self.get_num_timesteps_raw() *.75])
+      plt.show()
+      
+      plt.title('Negative Reference Sample', fontdict={'fontsize':30})
+      plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
+      plt.xlabel('Time (Hours)')
+      plt.ylabel('Fluorescence (A.U.)')
+      plt.ylim([0, max_flour])
+      plt.xlim([0, self.get_num_timesteps_raw() *.75])
       plt.show()
   
   def get_group_plots_supervised(self, model_names = None, tags = None):
@@ -951,17 +997,6 @@ class ML_QuIC:
     # Using last version of model here, should be the same indices ideally TODO - Enforce this?
     samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
     
-    # Create plot and collect axes
-    fig, ax = plt.subplots(2, 2)
-    fig.suptitle('False Positive Classification Comparisons')
-    for i, fp_ax in enumerate(fp_plots_to_show):
-      ax[i, 1].set_title(models[i])
-      ax[i, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
-      ax[i, 1].set_xlabel('Time (Hours)')
-      ax[i, 1].set_ylabel('Fluorescence (A.U.)')
-      ax[i, 1].set_ylim([0, self.max_fluorescence])
-      ax[i, 1].set_xlim([0, self.get_num_timesteps_raw() *.75])
-    
     # Find a universal positive reference
     pos_sample = None
     for i in range(len(samples)):
@@ -978,18 +1013,48 @@ class ML_QuIC:
       sample_type = 'positive' if pos_sample is None else 'negative'
       raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
     
+    max_flour = np.max([np.max(fp_plots_to_show), np.max(pos_sample), np.max(neg_sample)])
+    
+    # Create plot and collect axes
+    fig, ax = plt.subplots(2, 2)
+    fig.suptitle('False Positive Classification Comparisons')
+    for i, fp_ax in enumerate(fp_plots_to_show):
+      ax[i, 1].set_title(models[i])
+      ax[i, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
+      ax[i, 1].set_xlabel('Time (Hours)')
+      ax[i, 1].set_ylabel('Fluorescence (A.U.)')
+      ax[i, 1].set_ylim([0, max_flour])
+      ax[i, 1].set_xlim([0, self.get_num_timesteps_raw() *.75])
+    
+    
     ax[0, 0].set_title('Positive Reference Sample')
     ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample, c = 'k')
     ax[0, 0].set_xlabel('Time (Hours)')
     ax[0, 0].set_ylabel('Fluorescence (A.U.)')
-    ax[0, 0].set_ylim([0, self.max_fluorescence])
+    ax[0, 0].set_ylim([0, max_flour])
     ax[0, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
     
     ax[1, 0].set_title('Negative Reference Sample')
     ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
     ax[1, 0].set_xlabel('Time (Hours)')
     ax[1, 0].set_ylabel('Fluorescence (A.U.)')
-    ax[1, 0].set_ylim([0, self.max_fluorescence])
+    ax[1, 0].set_ylim([0, max_flour])
     ax[1, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
     fig.savefig('Figures/Supervised Samples.png', bbox_inches='tight', dpi=500)
+    plt.show()
+    
+    plt.title('Positive Reference Sample', fontdict={'fontsize':30})
+    plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample, c = 'k')
+    plt.xlabel('Time (Hours)')
+    plt.ylabel('Fluorescence (A.U.)')
+    plt.ylim([0, max_flour])
+    plt.xlim([0, self.get_num_timesteps_raw() *.75])
+    plt.show()
+    
+    plt.title('Negative Reference Sample', fontdict={'fontsize':30})
+    plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
+    plt.xlabel('Time (Hours)')
+    plt.ylabel('Fluorescence (A.U.)')
+    plt.ylim([0, max_flour])
+    plt.xlim([0, self.get_num_timesteps_raw() *.75])
     plt.show()

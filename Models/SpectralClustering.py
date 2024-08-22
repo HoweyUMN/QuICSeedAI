@@ -7,7 +7,7 @@ class SpectralClustering:
 
     def __init__(self, n_clusters = 2, n_vars = 4):
         """Creates the model of a specified type to be the underlying model"""
-        self.model = SC(n_clusters=n_clusters, affinity='nearest_neighbors', assign_labels='discretize', n_jobs=12)
+        self.model = SC(n_clusters=n_clusters, affinity='nearest_neighbors', assign_labels='discretize', n_jobs=12, random_state=7)
         self.labels = None
         self.learned_data = np.zeros(1)
         # self.pca = PCA(n_components=min(n_vars, 8))

@@ -56,7 +56,7 @@ ml_quic.add_model(MLP.MLP(NDIM = ml_quic.get_num_timesteps_raw(),
 ### Train Unsupervised Models
 ml_quic.separate_train_test(tags=['Unsupervised'], train_type=3)
 ml_quic.train_models(tags=['Unsupervised'])
-
+#%%
 ### Train Supervised Models
 ml_quic.separate_train_test(tags=['Supervised'], train_type=0)
 ml_quic.train_models(tags = ['Supervised'])
@@ -71,9 +71,9 @@ ml_quic.get_group_plots_unsupervised(tags = ['Unsupervised'])
 #%%
 ### Get Supervised Scores and Plots
 ml_quic.get_model_scores(tags = ['Supervised'])
-ml_quic.evaluate_fp_performance(tags=['Supervised'])
-ml_quic.get_model_plots(tags=['Supervised'])
-ml_quic.get_group_plots_supervised(tags = ['Supervised'])
+# ml_quic.evaluate_fp_performance(tags=['Supervised'])
+# ml_quic.get_model_plots(tags=['Supervised'])
+# ml_quic.get_group_plots_supervised(tags = ['Supervised'])
 
 #%%
 ### Test on G Wells

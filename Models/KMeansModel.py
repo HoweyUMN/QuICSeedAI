@@ -48,8 +48,7 @@ class KMeansModel:
 
     
     def predict(self, data, labels, binary = True):
-        """Binary is unimplemented because KMeans returns true binary output - labels are used
-        to ensure cluster labels line up with true labels (ie neg = 0  and pos = 0)"""
+        """Makes predictions about data"""
         data = self.pca.transform(data)
         data = self.scaler.transform(data)
         preds = self.model.predict(data)

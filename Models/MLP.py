@@ -1,5 +1,6 @@
 import os
 import keras
+import keras.callbacks
 import numpy as np
 import tensorflow as tf
 from keras.layers import Dense, Input, Dropout
@@ -25,13 +26,14 @@ class MLP:
             
         else: # Train new if can't find necessary components
             input_layer = Input(shape=NDIM)
-            dense = Dense(2 * NDIM, activation = 'relu')(input_layer)
+            dense = Dense(2 * NDIM, activation = 'relu', kernel_initializer='he_normal')(input_layer)
             # dense = Dropout(0.5)(dense)
-            dense = Dense(2 * NDIM, activation = 'relu')(dense)
+            dense = Dense(2 * NDIM, activation = 'relu', kernel_initializer='he_normal')(dense)
             # dense = Dropout(0.5)(dense)
-            dense = Dense(NDIM, activation = 'relu')(dense)
+            dense = Dense(NDIM, activation = 'relu', kernel_initializer='he_normal')(dense)
             # dense = Dropout(0.5)(dense)
-            output = Dense(3, activation='softmax')(dense)
+            output = Dense(3, activation='softmax', kernel_initializer='he_normal')(dense)
+
 
             self.model = Model(input_layer, output)
             self.scaler = StandardScaler()
@@ -40,8 +42,8 @@ class MLP:
         print('\MLP Model Loaded:')
         print(type(self.model))
 
-    def fit(self, learning_rate=5e-3, loss = 'categorical_crossentropy',
-            x = None, y = None, batch_size = 64, epochs = 400, verbose = 0, callbacks = None, validation_split = 0.1,
+    def fit(self, learning_rate=5e-4, loss = 'categorical_crossentropy',
+            x = None, y = None, batch_size = 128, epochs = 200, verbose = 0, callbacks = None, validation_split = 0.1,
             validation_data = None, shuffle = True, class_weight = None, sample_weight=None, initial_epoch=0, 
             steps_per_epoch = None, validation_steps = None, validation_batch_size = None, validation_freq = 1, 
             max_queue_size = 10, workers = 1, use_multiprocessing = True):
@@ -58,9 +60,28 @@ class MLP:
             y = keras.utils.to_categorical(y)
 
             self.model.compile(optimizer = tf.keras.optimizers.Adam(learning_rate), loss = loss)
+            
+            def variable_lr(epoch):
+                lr = 5e-4
+                if epoch > 1:
+                    lr = 1e-4
+                if epoch > 18:
+                    lr = 5e-5
+                if epoch > 35:
+                    lr = 1e-5
+                if epoch > 150:
+                    lr = 5e-6
+                return lr
+                    
 
             if callbacks == None:
-                callbacks = [keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, mode='min', restore_best_weights = True)]
+                callbacks = [keras.callbacks.LearningRateScheduler(variable_lr),
+                            #  keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, mode='min', restore_best_weights = True)
+                            keras.callbacks.ModelCheckpoint(filepath = './chkpnt.h5',
+                                                            monitor='val_loss',
+                                                            mode = 'min',
+                                                            save_best_only=True)
+                            ]
 
             history = self.model.fit(
                 x,
@@ -87,10 +108,14 @@ class MLP:
             import matplotlib.pyplot as plt
             plt.plot(history.history['loss'])
             plt.plot(history.history['val_loss'])
+            
+            max_val = np.max(np.concatenate([history.history['loss'], history.history['val_loss']]))
+            
             plt.title('model loss')
             plt.ylabel('loss')
             plt.xlabel('epoch')
-            plt.legend(['train', 'val'], loc='upper left')
+            plt.ylim([0, max_val])
+            # plt.legend(['train', 'val'], loc='upper left')
             plt.savefig('./Loss.png')
             
             self.model.save(self.model_path)

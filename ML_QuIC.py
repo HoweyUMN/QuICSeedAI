@@ -18,8 +18,8 @@ import numpy as np
 from sklearn.metrics import classification_report, f1_score, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 plt.rcParams.update({'font.size': 28})
-plt.rcParams['lines.linewidth'] = 3
-plt.rcParams['axes.linewidth'] = 3
+plt.rcParams['lines.linewidth'] = 5
+plt.rcParams['axes.linewidth'] = 5
 from sklearn.preprocessing import StandardScaler
 import multiprocessing
 import seaborn as sns

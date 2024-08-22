@@ -34,7 +34,7 @@ import copy
 # tidyverse = importr('tidyverse')
 # QuICAnalysis = importr('QuICAnalysis')
 
-class ML_QuIC:
+class QuICSeedIF:
   """This class contains a series of Python methods to processs and perform machine learning
   on RT-Quic data. R processing is currently unimplemented.
 

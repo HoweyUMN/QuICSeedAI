@@ -1,8 +1,8 @@
 #%%
 ### Import Packages
 import importlib as imp
-import ML_QuIC as ML_QuIC
-imp.reload(ML_QuIC)
+import QuICSeedIF as QuICSeedIF
+imp.reload(QuICSeedIF)
 import copy
 import numpy as np
 import tensorflow as tf
@@ -13,7 +13,7 @@ DATA_DIR = './Data/GrinderClean'
 RANDOM_SEED = 7
 
 # Load dataAC
-ml_quic = ML_QuIC.ML_QuIC()
+ml_quic = QuICSeedIF.QuICSeedIF()
 ml_quic.import_dataset(data_dir=DATA_DIR);
 ml_quic.get_dataset_statistics()
 
@@ -77,7 +77,7 @@ ml_quic.get_model_scores(tags = ['Supervised'])
 
 #%%
 ### Test on G Wells
-ml_quic = ml_quic = ML_QuIC.ML_QuIC()
+ml_quic = ml_quic = QuICSeedIF.QuICSeedIF()
 ml_quic.import_dataset(data_dir='./Data/GrinderGWells')
 ml_quic.get_dataset_statistics()
 

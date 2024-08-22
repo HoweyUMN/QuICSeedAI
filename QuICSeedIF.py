@@ -185,7 +185,8 @@ class QuICSeedIF:
   def separate_train_test(self, seed = 7, test_size = 0.1, train_type = 0, model_names = None, tags = None, file_loc = './TrainTest'):
     """Separates imported data into a training set and a testing set.\n
     train_type: 0 - Mix of samples, 1 is positive samples only, 2 is negative samples only, 3 is all data is trained on. If only pos/neg is used, 
-    test size is how many of the training sample type to withold\n
+    test size is how many of the training sample type to withold. 
+    \nFilename overrides train type\n
     Returns: [training_indices, testing_indices]"""
     np.random.seed = seed
 

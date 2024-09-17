@@ -29,12 +29,12 @@ ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 3,
                                           ), model_name='KMeans Metrics', data_type='analysis', tag='Unsupervised')
 
 #%%
-### Add Spectral Clustering
-from Models import SpectralClustering
-ml_quic.add_model(SpectralClustering.SpectralClustering(n_clusters = 3), model_name='Spectral Raw', data_type='raw', tag='Unsupervised')
+# ### Add Spectral Clustering
+# from Models import SpectralClustering
+# ml_quic.add_model(SpectralClustering.SpectralClustering(n_clusters = 3), model_name='Spectral Raw', data_type='raw', tag='Unsupervised')
 
-from Models import SpectralClustering
-ml_quic.add_model(SpectralClustering.SpectralClustering(n_clusters = 3), model_name='Spectral Metrics', data_type='analysis', tag='Unsupervised')
+# from Models import SpectralClustering
+# ml_quic.add_model(SpectralClustering.SpectralClustering(n_clusters = 3), model_name='Spectral Metrics', data_type='analysis', tag='Unsupervised')
 
 #%%
 ### SVM
@@ -54,11 +54,11 @@ ml_quic.add_model(MLP.MLP(NDIM = ml_quic.get_num_timesteps_raw(),
 
 #%%
 ### Train Unsupervised Models
-ml_quic.separate_train_test(tags=['Unsupervised'], train_type=3)
+ml_quic.separate_train_test(tags=['Unsupervised'], train_type=0, test_size=0.25)
 ml_quic.train_models(tags=['Unsupervised'])
 #%%
 ### Train Supervised Models
-ml_quic.separate_train_test(tags=['Supervised'], train_type=0)
+ml_quic.separate_train_test(tags=['Supervised'], train_type=0, test_size=0.25)
 ml_quic.train_models(tags = ['Supervised'])
 
 #%%
@@ -66,7 +66,7 @@ ml_quic.train_models(tags = ['Supervised'])
 ml_quic.get_model_scores(tags=['Unsupervised'])
 ml_quic.evaluate_fp_performance(tags=['Unsupervised'])
 ml_quic.get_model_plots(tags=['Unsupervised'])
-ml_quic.get_group_plots_unsupervised(tags = ['Unsupervised'])
+# ml_quic.get_group_plots_unsupervised(tags = ['Unsupervised'])
 
 #%%
 ### Get Supervised Scores and Plots

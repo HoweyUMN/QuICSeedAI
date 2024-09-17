@@ -141,11 +141,11 @@ class QuICSeedIF:
                       ' data lines up!')
 
     # Take imported data and store with the object attributes
-    self.raw_dataset = raw_data
-    self.metadata = metadata
-    self.analysis_dataset = analysis
-    self.labels = metadata['final']
-    self.replicate_data = replicates
+    self.raw_dataset = raw_data.reset_index(drop=True)
+    self.metadata = metadata.reset_index(drop=True)
+    self.analysis_dataset = analysis.reset_index(drop=True)
+    self.labels = metadata['final'].reset_index(drop=True)
+    self.replicate_data = replicates.reset_index(drop=True)
 
     return [raw_data, metadata, analysis]
   
@@ -182,10 +182,10 @@ class QuICSeedIF:
 
     return [negatives, fps, positives, control_wells, data_wells]
 
-  def separate_train_test(self, seed = 7, test_size = 0.1, train_type = 0, model_names = None, tags = None, file_loc = './TrainTest'):
+  def separate_train_test(self, seed = 7, test_size = 0.15, train_type = 0, model_names = None, tags = None, file_loc = './TrainTest'):
     """Separates imported data into a training set and a testing set.\n
     train_type: 0 - Mix of samples, 1 is positive samples only, 2 is negative samples only, 3 is all data is trained on. If only pos/neg is used, 
-    test size is how many of the training sample type to withold. 
+    test size is how many of the wells with actual samples to withold. 
     \nFilename overrides train type\n
     Returns: [training_indices, testing_indices]"""
     np.random.seed = seed
@@ -205,6 +205,7 @@ class QuICSeedIF:
     model_list = copy.copy(models)
     for model in model_list:
       if os.path.exists(file_loc + '/' + model + '/train.csv') and os.path.exists(file_loc + '/' + model + './test.csv'):
+        # Remove models with prespecified train/test sets
         models.remove(model)
         self.training_indices[model] = np.loadtxt(file_loc + '/' + model + '/train.csv', delimiter=',', dtype=int)
         self.testing_indices[model] = np.loadtxt(file_loc + '/' + model + '/test.csv', delimiter=',', dtype=int)
@@ -212,7 +213,7 @@ class QuICSeedIF:
     if len(models) == 0:
       return [self.training_indices, self.testing_indices]
 
-    # Train on only positive samples and test on mixed dataset
+    # Train on only positive wells and test on mixed dataset
     if train_type == 1:
       pos_indices = np.array(np.where(self.labels == 2)[0])
       neg_indices = np.array(np.where(self.labels != 2)[0])
@@ -222,7 +223,7 @@ class QuICSeedIF:
       np.random.shuffle(test_indices)
       np.random.shuffle(train_indices)
 
-    # Train on only negative samples and test on mixed dataset
+    # Train on only negative wells and test on mixed dataset
     elif train_type == 2:
       pos_indices = np.where(self.labels == 2)
       neg_indices = np.where(self.labels != 2)
@@ -234,11 +235,32 @@ class QuICSeedIF:
 
     # Train and test on mixed dataset
     elif train_type == 0:
-      # Shuffle the dataset to ensure randomness
-      indices = np.random.permutation(len(self.raw_dataset))
-
-      test_indices = indices[:int(test_size * len(self.raw_dataset))]
-      train_indices = indices[int(test_size * len(self.raw_dataset)):]
+      # Shuffle the dataset by sample to ensure randomness
+      train_indices = []
+      test_indices = []  
+    
+      # Sample order is shuffled so precise test set size can be achieved
+      samples = np.array(self.metadata['content'].unique(), dtype=str)
+      reshuffle_i = np.random.permutation(len(samples))
+      samples = samples[reshuffle_i]
+      for sample in samples:
+        indices = self.raw_dataset.index[self.raw_dataset['content_replicate'].str.contains(sample)]
+        if max(indices) > len(self.raw_dataset):
+          continue
+        
+        # Put all controls into the training set
+        if sample == 'neg' or sample == 'pos':
+          train_indices.extend(indices)
+          
+        # Use random number generation to create test set of desired size
+        elif len(test_indices) < test_size * len(samples):
+          test_indices.extend(indices)
+          
+        else:
+          train_indices.extend(indices)
+      
+      train_indices = np.array(train_indices)[np.random.permutation(len(train_indices))]
+      test_indices = np.array(test_indices)[np.random.permutation(len(test_indices))]
 
     # Train and test on entire dataset (only appropriate for unsupervised learning)
     elif train_type == 3:

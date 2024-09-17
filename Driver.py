@@ -71,9 +71,9 @@ ml_quic.get_group_plots_unsupervised(tags = ['Unsupervised'])
 #%%
 ### Get Supervised Scores and Plots
 ml_quic.get_model_scores(tags = ['Supervised'])
-# ml_quic.evaluate_fp_performance(tags=['Supervised'])
-# ml_quic.get_model_plots(tags=['Supervised'])
-# ml_quic.get_group_plots_supervised(tags = ['Supervised'])
+ml_quic.evaluate_fp_performance(tags=['Supervised'])
+ml_quic.get_model_plots(tags=['Supervised'])
+ml_quic.get_group_plots_supervised(tags = ['Supervised'])
 
 #%%
 ### Test on G Wells

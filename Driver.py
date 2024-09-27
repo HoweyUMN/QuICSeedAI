@@ -6,6 +6,7 @@ imp.reload(QuICSeedIF)
 import copy
 import numpy as np
 import tensorflow as tf
+from Models import KMeansModel, SVM, MLP
 
 #%%
 ### Import Data and Create Objects to Analyze
@@ -19,26 +20,17 @@ ml_quic.get_dataset_statistics()
 
 #%%
 ### Add 2 KMeans Models
-from Models import KMeansModel
+
 ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 3,
                                           file_path= './SavedModels/Raw/', model_name='kmeans'
                                           ), model_name='KMeans Raw', data_type='raw', tag='Unsupervised')
-from Models import KMeansModel
+
 ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 3,
                                           file_path= './SavedModels/Analysis/', model_name='kmeans'
                                           ), model_name='KMeans Metrics', data_type='analysis', tag='Unsupervised')
 
 #%%
-# ### Add Spectral Clustering
-# from Models import SpectralClustering
-# ml_quic.add_model(SpectralClustering.SpectralClustering(n_clusters = 3), model_name='Spectral Raw', data_type='raw', tag='Unsupervised')
-
-# from Models import SpectralClustering
-# ml_quic.add_model(SpectralClustering.SpectralClustering(n_clusters = 3), model_name='Spectral Metrics', data_type='analysis', tag='Unsupervised')
-
-#%%
 ### SVM
-from Models import SVM
 ml_quic.add_model(SVM.SVM(
     file_path='./SavedModels/Raw/', model_name='svm'
     ), model_name = 'SVM Raw', data_type = 'raw', tag = 'Supervised')
@@ -47,33 +39,26 @@ ml_quic.add_model(SVM.SVM(file_path='./SavedModels/Analysis/', model_name='svm')
 
 #%%
 ### MLP
-from Models import MLP
 ml_quic.add_model(MLP.MLP(NDIM = ml_quic.get_num_timesteps_raw(), 
                           file_path='./SavedModels/Raw/', model_name='mlp'
                           ), model_name = 'MLP Raw', data_type = 'raw', tag='Supervised')
 
 #%%
-### Train Unsupervised Models
-ml_quic.separate_train_test(tags=['Unsupervised'], train_type=0, test_size=0.25)
-ml_quic.train_models(tags=['Unsupervised'])
-#%%
-### Train Supervised Models
-ml_quic.separate_train_test(tags=['Supervised'], train_type=0, test_size=0.25)
-ml_quic.train_models(tags = ['Supervised'])
+### Train Models
+ml_quic.separate_train_test(tags=['Unsupervised', 'Supervised'], train_type=0, test_size=0.20)
+ml_quic.train_models(tags=['Unsupervised', 'Supervised'])
 
 #%%
-### Get Plots and Scores
+### Get Plots and Scores for Unsupervised Models
 ml_quic.get_model_scores(tags=['Unsupervised'])
 ml_quic.evaluate_fp_performance(tags=['Unsupervised'])
 ml_quic.get_model_plots(tags=['Unsupervised'])
-# ml_quic.get_group_plots_unsupervised(tags = ['Unsupervised'])
 
 #%%
 ### Get Supervised Scores and Plots
 ml_quic.get_model_scores(tags = ['Supervised'])
 ml_quic.evaluate_fp_performance(tags=['Supervised'])
 ml_quic.get_model_plots(tags=['Supervised'])
-ml_quic.get_group_plots_supervised(tags = ['Supervised'])
 
 #%%
 ### Test on G Wells
@@ -115,4 +100,35 @@ for i in range(len(pred_km)):
     print('{:20s} {:20s} {:20s} {:20s} {:20s}'.format(sample_list_km[i], pred_km[i], pred_svm_r[i], pred_svm_m[i], pred_mlp[i]))
 
 
+# %%
+### Test on Unrelated Data
+ml_quic = ml_quic = QuICSeedIF.QuICSeedIF()
+ml_quic.import_dataset(data_dir='./Data/ValidationData')
+ml_quic.get_dataset_statistics()
+
+ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 3,
+                                          file_path= './SavedModels/Raw/', model_name='kmeans'
+                                          ), model_name='KMeans Raw', data_type='raw', tag='Unsupervised')
+ml_quic.add_model(KMeansModel.KMeansModel(n_clusters = 3,
+                                          file_path= './SavedModels/Analysis/', model_name='kmeans'
+                                          ), model_name='KMeans Metrics', data_type='analysis', tag='Unsupervised')
+
+ml_quic.add_model(SVM.SVM(
+    file_path='./SavedModels/Raw/', model_name='svm'
+    ), model_name = 'SVM Raw', data_type = 'raw', tag = 'Supervised')
+
+ml_quic.add_model(SVM.SVM(
+    file_path='./SavedModels/Analysis/', model_name='svm'
+    ), model_name = 'SVM Metrics', data_type = 'analysis', tag = 'Supervised')
+
+ml_quic.add_model(MLP.MLP(NDIM = ml_quic.get_num_timesteps_raw(), 
+                          file_path='./SavedModels/Raw/', model_name='mlp'
+                          ), model_name = 'MLP Raw', data_type = 'raw', tag='Supervised')
+
+ml_quic.separate_train_test(tags=['Supervised', 'Unsupervised'], train_type=3, file_loc='./TrainTest/Val_Data')
+
+### Get Supervised Scores and Plots
+ml_quic.evaluate_fp_performance(tags=['Unsupervised', 'Supervised'], file_loc='./FiguresVal/')
+ml_quic.get_model_scores(tags = ['Unsupervised', 'Supervised'])
+ml_quic.get_model_plots(tags=['Unsupervised', 'Supervised'], file_loc='./FiguresVal/')
 # %%

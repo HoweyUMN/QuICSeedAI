@@ -30,9 +30,10 @@ class SVM:
 
     def fit(self, x = None, y = None):
         if not self.pretrained:
-            x = self.pca.fit_transform(x)
             self.scaler.fit(x)
             x = self.scaler.transform(x)
+            x = self.pca.fit_transform(x)
+            
             y = np.array(y == 2)
             self.model.fit(x, y)
             
@@ -48,8 +49,9 @@ class SVM:
     def predict(self, data, labels = None, binary = True):
         """Binary is unimplemented because SVM is a true binary classifier with no ambiguity
         - Labels are unused"""
+        data = StandardScaler().fit_transform(data)
         data = self.pca.transform(data)
-        data = self.scaler.transform(data)
+        
         return self.model.predict(data)
     
     def get_scores(self, data, true):

@@ -10,11 +10,12 @@ import os
 class KMeansModel:
     """A simple interface between a KMeans model and the generic ML-QuIC structure. All the methods are unaltered, just a mask to keep things consistent."""
 
-    def __init__(self, n_clusters = 2, random_state = 7, file_path = './', model_name = 'kmeans'):
+    def __init__(self, n_clusters = 2, random_state = 7, file_path = './', model_name = 'kmeans', pca = True):
         self.model_path = file_path + model_name + '.pkl'
         self.scaler_path = file_path + model_name + '_scaler.pkl'
         self.pca_path = file_path + model_name + '_pca.pkl'
         self.pretrained = False
+        self.pca = pca
         
         if os.path.exists(self.model_path) and os.path.exists(self.scaler_path) and os.path.exists(self.pca_path):
             self.model = pickle.load(open(self.model_path, 'rb'))
@@ -23,7 +24,7 @@ class KMeansModel:
             self.pretrained = True
         
         else: # Generate new if doesn't exist
-            self.model = KMeans(n_clusters=n_clusters, init='random', max_iter=500, n_init=150, random_state=random_state)
+            self.model = KMeans(n_clusters=n_clusters, init='random', max_iter=500, n_init=200, random_state=random_state)
             self.pca = PCA(n_components=4)
             self.scaler = StandardScaler()
             
@@ -32,8 +33,8 @@ class KMeansModel:
 
     def fit(self, x = None, y = None):  
         if not self.pretrained:
-            x = self.pca.fit_transform(x)
             x = self.scaler.fit_transform(x)
+            x = self.pca.fit_transform(x)
             
             self.model.fit(x)
             
@@ -49,8 +50,10 @@ class KMeansModel:
     
     def predict(self, data, labels, binary = True):
         """Makes predictions about data"""
-        data = self.pca.transform(data)
-        data = self.scaler.transform(data)
+
+        data = StandardScaler().fit_transform(data)
+        data = self.pca.fit_transform(data)
+        
         preds = self.model.predict(data)
         max = np.max(preds)
         preds = np.array(preds == max, dtype=int) # Fix an issue where KMeans picks weird labels

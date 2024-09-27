@@ -8,10 +8,12 @@ from keras import Model, regularizers
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report
 import pickle
+import math
+from scipy.stats import wilcoxon
 
 class MLP:
 
-    def __init__(self, NDIM, class_weight = None, file_path = './', model_name = 'mlp'):
+    def __init__(self, NDIM, class_weight = None, file_path = './MLP/', model_name = 'mlp', num_models = 5):
         """Initializes a DNN and scaler which can be used in standardized training
         Class weight is unimplemented with pretrained models"""
         self.model_path = file_path + model_name + '.h5'
@@ -26,12 +28,14 @@ class MLP:
             
         else: # Train new if can't find necessary components
             input_layer = Input(shape=NDIM)
-            dense = Dense(2 * NDIM, activation = 'relu', kernel_initializer='he_normal')(input_layer)
-            # dense = Dropout(0.5)(dense)
-            dense = Dense(2 * NDIM, activation = 'relu', kernel_initializer='he_normal')(dense)
-            # dense = Dropout(0.5)(dense)
+            
+            dense = Dense(NDIM, activation = 'relu', kernel_initializer='he_normal')(input_layer)
+            dense = Dropout(0.5)(dense)
             dense = Dense(NDIM, activation = 'relu', kernel_initializer='he_normal')(dense)
-            # dense = Dropout(0.5)(dense)
+            dense = Dropout(0.5)(dense)
+            dense = Dense(NDIM, activation = 'relu', kernel_initializer='he_normal')(dense)
+            dense = Dropout(0.5)(dense)
+            
             output = Dense(3, activation='softmax', kernel_initializer='he_normal')(dense)
 
 
@@ -42,8 +46,8 @@ class MLP:
         print('\MLP Model Loaded:')
         print(type(self.model))
 
-    def fit(self, learning_rate=5e-4, loss = 'categorical_crossentropy',
-            x = None, y = None, batch_size = 128, epochs = 200, verbose = 0, callbacks = None, validation_split = 0.1,
+    def fit(self, learning_rate=1e-2, loss = 'categorical_crossentropy',
+            x = None, y = None, batch_size = 64, epochs = 100, verbose = 0, callbacks = None, validation_split = 0.1,
             validation_data = None, shuffle = True, class_weight = None, sample_weight=None, initial_epoch=0, 
             steps_per_epoch = None, validation_steps = None, validation_batch_size = None, validation_freq = 1, 
             max_queue_size = 10, workers = 1, use_multiprocessing = True):
@@ -60,72 +64,60 @@ class MLP:
             y = keras.utils.to_categorical(y)
 
             self.model.compile(optimizer = tf.keras.optimizers.Adam(learning_rate), loss = loss)
-            
-            def variable_lr(epoch):
-                lr = 5e-4
-                if epoch > 1:
-                    lr = 1e-4
-                if epoch > 18:
-                    lr = 5e-5
-                if epoch > 35:
-                    lr = 1e-5
-                if epoch > 150:
-                    lr = 5e-6
-                return lr
                     
 
             if callbacks == None:
-                callbacks = [keras.callbacks.LearningRateScheduler(variable_lr),
+                callbacks = [
                             #  keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 20, mode='min', restore_best_weights = True)
                             keras.callbacks.ModelCheckpoint(filepath = './chkpnt.h5',
                                                             monitor='val_loss',
                                                             mode = 'min',
                                                             save_best_only=True)
                             ]
-
-            history = self.model.fit(
-                x,
-                y,
-                batch_size,
-                epochs,
-                verbose,
-                callbacks,
-                validation_split,
-                validation_data,
-                shuffle,
-                self.class_weight,
-                sample_weight,
-                initial_epoch,
-                steps_per_epoch,
-                validation_steps,
-                validation_batch_size,
-                validation_freq,
-                max_queue_size,
-                workers,
-                use_multiprocessing,
-            )
+            for i in range(5):
+                history = self.model.fit(
+                    x,
+                    y,
+                    batch_size,
+                    epochs,
+                    verbose,
+                    callbacks,
+                    validation_split,
+                    validation_data,
+                    shuffle,
+                    self.class_weight,
+                    sample_weight,
+                    initial_epoch,
+                    steps_per_epoch,
+                    validation_steps,
+                    validation_batch_size,
+                    validation_freq,
+                    max_queue_size,
+                    workers,
+                    use_multiprocessing,
+                )
             
-            import matplotlib.pyplot as plt
-            plt.plot(history.history['loss'])
-            plt.plot(history.history['val_loss'])
-            
-            max_val = np.max(np.concatenate([history.history['loss'], history.history['val_loss']]))
-            
-            plt.title('model loss')
-            plt.ylabel('loss')
-            plt.xlabel('epoch')
-            plt.ylim([0, max_val])
-            # plt.legend(['train', 'val'], loc='upper left')
-            plt.savefig('./Loss.png')
-            
-            self.model.save(self.model_path)
+                import matplotlib.pyplot as plt
+                plt.plot(history.history['loss'])
+                plt.plot(history.history['val_loss'])
+                
+                max_val = np.max(np.concatenate([history.history['loss'], history.history['val_loss']]))
+                
+                plt.title('model loss')
+                plt.ylabel('loss')
+                plt.xlabel('epoch')
+                plt.ylim([0, max_val])
+                # plt.legend(['train', 'val'], loc='upper left')
+                plt.savefig('./Loss.png')
+                
+                self.model.save(self.model_path)
 
     def predict(self, data, labels = None, binary = False):
         """Acts as an interface for the model's prediction method, performs scaling and
         gets data into a format appropriate for testing - labels are unused"""
 
         # Get the predictions
-        data = self.scaler.transform(data)
+        data = StandardScaler().fit_transform(data)
         preds = self.model.predict(data)
 
         # Return just the class prediction as more of a rating

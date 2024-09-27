@@ -2,6 +2,7 @@
 data before training models on it. The data can be analyzed using R scripts or cleaned and processed as
 raw fluorescence values"""
 import os
+import sys
 import socket
 if socket.gethostname() == 'Desktop-CS1TBMI':
   os.environ['R_HOME'] = "C:/PROGRA~1/R/R-43~1.1"
@@ -94,7 +95,7 @@ class QuICSeedIF:
       data_dir - path to directory where folders are stored\n
       folders - directories in data_dir where data is stored\n
       Returns:\n
-      dataset - Imported dataframes for [raw, metadata, analysis]"""
+      dataset - Imported dataframes for [raw, metadata, calculated metrics]"""
       
     # If no folders are given, automatically search for all potential data folders
     if folders is None:
@@ -116,12 +117,12 @@ class QuICSeedIF:
       metadata = pd.concat((metadata, this_md))
 
       # Get Raw Data
-      raw_path = glob.glob(folder + '/*raw*.csv')[0].replace('\\', '/')
+      raw_path = glob.glob(folder + '/*df*.csv')[0].replace('\\', '/')
       this_raw = pd.read_csv(raw_path)
       raw_data = pd.concat((raw_data, this_raw))
 
       # Get Analyzed Data
-      analysis_path = glob.glob(folder + '/*analysis*.csv')[0].replace('\\', '/')
+      analysis_path = glob.glob(folder + '/*cal*.csv')[0].replace('\\', '/')
       this_analysis = pd.read_csv(analysis_path)
       analysis = pd.concat((analysis, this_analysis))
 
@@ -144,7 +145,7 @@ class QuICSeedIF:
     self.raw_dataset = raw_data.reset_index(drop=True)
     self.metadata = metadata.reset_index(drop=True)
     self.analysis_dataset = analysis.reset_index(drop=True)
-    self.labels = metadata['final'].reset_index(drop=True)
+    self.labels = metadata['identity'].reset_index(drop=True)
     self.replicate_data = replicates.reset_index(drop=True)
 
     return [raw_data, metadata, analysis]
@@ -161,9 +162,9 @@ class QuICSeedIF:
       raise Exception("No data imported.")
     
     # Get the counts of different well types in the dataset
-    negatives = len(self.metadata[self.metadata['final'] == 0])
-    fps = len(self.metadata[self.metadata['final'] == 1])
-    positives = len(self.metadata[self.metadata['final'] == 2])
+    negatives = len(self.metadata[self.metadata['identity'] == 0])
+    fps = len(self.metadata[self.metadata['identity'] == 1])
+    positives = len(self.metadata[self.metadata['identity'] == 2])
 
     # blank_wells = len(self.metadata[self.metadata['content'] == 'blank'])
     control_wells = len(self.metadata[self.metadata['content'] == 'pos']) + len(self.metadata[self.metadata['content'] == 'neg'])
@@ -244,16 +245,14 @@ class QuICSeedIF:
       reshuffle_i = np.random.permutation(len(samples))
       samples = samples[reshuffle_i]
       for sample in samples:
-        indices = self.raw_dataset.index[self.raw_dataset['content_replicate'].str.contains(sample)]
-        if max(indices) > len(self.raw_dataset):
-          continue
+        indices = self.raw_dataset.index[self.raw_dataset['content_replicate'].str.contains('^'+sample+'_', regex=True)]
         
         # Put all controls into the training set
         if sample == 'neg' or sample == 'pos':
           train_indices.extend(indices)
           
         # Use random number generation to create test set of desired size
-        elif len(test_indices) < test_size * len(samples):
+        elif len(test_indices) < test_size * len(self.raw_dataset):
           test_indices.extend(indices)
           
         else:
@@ -360,7 +359,7 @@ class QuICSeedIF:
       y_train = labels[self.training_indices[model]]
       self.models[model].fit(x = x_train, y = y_train)
   
-  def get_model_predictions(self, testing_indices = None, model_names = None):
+  def get_model_predictions(self, testing_indices = None, model_names = None, binary = None):
     """When a model is stored in the ML_QuIC object, get predictions from the model on test data in set\n
     Parameters:\n
     testing_indices: The indices of the testing dataset - default is whats in dataset, full datset if
@@ -386,7 +385,7 @@ class QuICSeedIF:
       else:
         x_test = self.get_numpy_dataset('analysis')[testing_indices[model]]
       y_test = self.get_numpy_dataset('labels')[testing_indices[model]]
-      predictions[model] = self.models[model].predict(x_test, y_test)
+      predictions[model] = self.models[model].predict(x_test, y_test, binary = binary)
       self.predictions[model] = predictions[model]
 
     return predictions
@@ -468,7 +467,7 @@ class QuICSeedIF:
       
     return predictions, sample_list
         
-  def evaluate_fp_performance(self, test_indices_dict = None, model_names = None, tags = None):
+  def evaluate_fp_performance(self, test_indices_dict = None, model_names = None, tags = None, file_loc = './Figures/'):
     """Evaluates the performance of a model on known false positives in detail. Works for 2 class and 3 class models."""
 
     # If tag is specified, only run for given tag
@@ -517,7 +516,7 @@ class QuICSeedIF:
       print('False Positives Account for {:.2f}% of total misclassifications.'.format(100 * (incorrect_preds_fp / incorrect_preds)))
 
       ## Evaluate nature of FPs that were misclassified
-      ttt = np.array(self.analysis_dataset['TimeToThreshold'])[test_indices][y_test == 1]
+      ttt = np.array(self.analysis_dataset['TTT'])[test_indices][y_test == 1]
       raf = np.array(self.analysis_dataset['RAF'])[test_indices][y_test == 1]
       mpr = np.array(self.analysis_dataset['MPR'])[test_indices][y_test == 1]
       ms = np.array(self.analysis_dataset['MS'])[test_indices][y_test == 1]
@@ -552,12 +551,29 @@ class QuICSeedIF:
       correct_p_indices = test_indices[np.logical_and(preds == 1, y_test == 2)]
       correct_n_indices = test_indices[np.logical_and(y_test == 0, preds == 0)]
       
-      # Get reactions to plot
-      neg_to_plot = self.get_numpy_dataset('raw')[correct_n_indices[0]]
-      pos_to_plot = self.get_numpy_dataset('raw')[correct_p_indices[0]]
-      fp_to_plot = self.get_numpy_dataset('raw')[missed_fp_indices[0]]
+      try:
+        neg_to_plot = self.get_numpy_dataset('raw')[correct_n_indices[0]]
+        pos_to_plot = self.get_numpy_dataset('raw')[correct_p_indices[0]]
+        fp_to_plot = self.get_numpy_dataset('raw')[missed_fp_indices[int(len(missed_fp_indices) / 2)]]
+      
+      except IndexError as err:
+        if len(correct_n_indices) == 0:
+          print('No negative values correctly classified.', file=sys.stderr)
+        elif len(correct_p_indices) < 0:
+          print('No positive values correctly classified.', file=sys.stderr)
+        elif len(missed_fp_indices) < 0:
+          print('No false positive values correctly classified.') # This is actually a good thing
+        else:
+          print(err, file = sys.stderr)
+        return
       
       max_flour = np.max([np.max(neg_to_plot), np.max(pos_to_plot), np.max(fp_to_plot)])
+      if 'SVM' in model:
+        max_flour = 4000
+      elif 'MLP' in model:
+        max_flour = 3000
+      else:
+        max_flour = 5000
       
       # Plot correctly classified negative
       fig, ax = plt.subplots(1, 1)
@@ -567,7 +583,7 @@ class QuICSeedIF:
       ax.set_ylabel('Fluorescence (A.U.)')
       ax.set_xlim([0, self.get_num_timesteps_raw() *.75])
       ax.set_ylim([0, max_flour])
-      plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_NRSs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
+      plt.savefig(file_loc + model + '_' + self.model_dtype[model] + '_NRSs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
       plt.show()
       
       # Plot correctly classified positive
@@ -578,7 +594,7 @@ class QuICSeedIF:
       ax.set_ylabel('Fluorescence (A.U.)')
       ax.set_xlim([0, self.get_num_timesteps_raw() *.75])
       ax.set_ylim([0, max_flour])
-      plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_PRSs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
+      plt.savefig(file_loc + model + '_' + self.model_dtype[model] + '_PRSs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
       plt.show()
       
       # Plot misclassified false positive
@@ -592,7 +608,7 @@ class QuICSeedIF:
       ax.set_ylabel('Fluorescence (A.U.)')
       ax.set_xlim([0, self.get_num_timesteps_raw() *.75])
       ax.set_ylim([0, max_flour])
-      plt.savefig('Figures/' + model + '_' + self.model_dtype[model] + '_FPs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
+      plt.savefig(file_loc + model + '_' + self.model_dtype[model] + '_FPs.png', transparent = False, bbox_inches = 'tight', dpi = 500)
       plt.show()
       self.fp_plots[model] = self.get_numpy_dataset('raw')[missed_fp_indices[np.random.randint(0, len(missed_fp_indices))]]
 
@@ -600,7 +616,7 @@ class QuICSeedIF:
     print('-------- Positive Characteristics for Reference --------')
     pos = self.analysis_dataset.iloc[(self.get_numpy_dataset('labels') == 2)] # Positive analysis dataset
     print('Time To Threshold:')
-    print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'TimeToThreshold'].min(), pos.loc[:, 'TimeToThreshold'].mean(), pos.loc[:, 'TimeToThreshold'].max()))
+    print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'TTT'].min(), pos.loc[:, 'TTT'].mean(), pos.loc[:, 'TTT'].max()))
     print('RAF:')
     print('\tMin: {}, Average: {}, Max: {}'.format(pos.loc[:, 'RAF'].min(), pos.loc[:, 'RAF'].mean(), pos.loc[:, 'RAF'].max()))
     print('MPR:')
@@ -610,7 +626,7 @@ class QuICSeedIF:
     
     return incorrect_indices
     
-  def get_model_plots(self, model_names = None, tags = None):
+  def get_model_plots(self, model_names = None, tags = None, file_loc = './Figures/'):
     """Get plots for models according to their kinds and tags"""
 
     # If unspecified, get plots for all models
@@ -647,16 +663,32 @@ class QuICSeedIF:
       
       # Unsupervised block handled differently
       if plot_category == 'Unsupervised'.lower():
-        fig, ax = self._unsupervised_plots(y_true, y_pred, model, color_map)
+        fig, ax = self._unsupervised_plots(y_true, y_pred, model, color_map, file_loc)
 
       # Supervised block handled differently
       elif plot_category == 'Supervised'.lower():
-        fig, ax = self._supervised_plots(y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r'])
+        fig, ax = self._supervised_plots(y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r'], file_loc = file_loc)
 
       # Save plots that were generated for this model
-      plt.savefig('./Figures/' + model + '.png', bbox_inches = 'tight', transparent = False, dpi = 500)
+      plt.savefig(file_loc + model + '.png', bbox_inches = 'tight', transparent = False, dpi = 500)
+      plt.show()
 
-  def _supervised_plots(self, y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r']):
+    # Plot ROCs together
+    for model in models:
+      if 'MLP' in model: continue
+      y_true = (self.get_numpy_dataset('labels')[self.testing_indices[model]] == 2)
+      y_pred = np.array(self.predictions[model])
+      
+      if np.max(y_pred) > 1:
+        y_pred = (np.rint(y_pred) == 2)
+    
+      fpr, tpr, thresh = roc_curve(y_true, y_pred)
+      auc = roc_auc_score(y_true, y_pred)
+      plt.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
+    plt.legend(loc=0, fontsize = 18)
+    plt.show()
+
+  def _supervised_plots(self, y_pred, y_true, model, color_map = ['b', 'k', 'g', 'r'], file_loc = './Figures/'):
     """Plot model outcomes for generic supervised models"""
     # Set up figure for plotting
     fig, ax = plt.subplots(2, 2)
@@ -681,7 +713,7 @@ class QuICSeedIF:
       
       cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_true, y_pred=(y_pred >= 0.5), normalize='true', display_labels=['Negative', 'Positive']).figure_
       cm_fig.suptitle(model + ' Confusion Matrix')
-      cm_fig.savefig('Figures/' + model + ' Confusion Matrix.png', bbox_inches='tight', dpi=500)
+      cm_fig.savefig(file_loc + model + ' Confusion Matrix.png', bbox_inches='tight', dpi=500)
 
       # Violin plot on the classificatoin distributions
       ax[0, 1].set_title('Classification Distribution')
@@ -725,7 +757,7 @@ class QuICSeedIF:
       ConfusionMatrixDisplay.from_predictions(y_true=y_binary, y_pred=pred_binary, ax=ax[0, 0], normalize='true', display_labels=['Negative', 'Positive'], colorbar='False')
       cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_binary, y_pred=pred_binary, normalize='true', display_labels=['Negative', 'Positive'], colorbar='False').figure_
       cm_fig.suptitle(model + ' Confusion Matrix')
-      cm_fig.savefig('Figures/' + model + ' Confusion Matrix.png', bbox_inches='tight', dpi=500)
+      cm_fig.savefig(file_loc + model + ' Confusion Matrix.png', bbox_inches='tight', dpi=500)
 
       # Violin plot on the classificatoin distributions
       ax[0, 1].set_title('Classification Distribution')
@@ -744,7 +776,7 @@ class QuICSeedIF:
       roc_ax.set_title('ROC Curve for ' + model)
       roc_ax.set_xlabel('False Positive Rate')
       roc_ax.set_ylabel('True Positive Rate')
-      roc_fig.savefig('./Figures/' + model + ' ROC.png', dpi=500, bbox_inches = 'tight')
+      roc_fig.savefig(file_loc + model + ' ROC.png', dpi=500, bbox_inches = 'tight')
 
       # Obtain the testing data for reference
       ds = self.get_numpy_dataset()[self.testing_indices[model]]
@@ -757,7 +789,7 @@ class QuICSeedIF:
       
     return fig, ax
 
-  def _unsupervised_plots(self, y_true, y_pred, model, color_map = ['b', 'k', 'g', 'r']):
+  def _unsupervised_plots(self, y_true, y_pred, model, color_map = ['b', 'k', 'g', 'r'], file_loc = './Figures/'):
     """Generate plots for a generic unsupervised model. Takes predictions and the model name"""
 
     # Set up figure for plotting
@@ -784,300 +816,307 @@ class QuICSeedIF:
     ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=ax[0, 1], normalize='true', display_labels=['Negative', 'Positive'])
     cm_fig = ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, normalize='true', display_labels=['Negative', 'Positive']).figure_
     cm_fig.suptitle(model + ' ' + 'Confusion Matrix')
-    cm_fig.savefig('Figures/' + model + ' Confusion Matrix.png', bbox_inches = 'tight', dpi=500)
+    cm_fig.savefig(file_loc + model + ' Confusion Matrix.png', bbox_inches = 'tight', dpi=500)
     
     ax[0, 0].set_title('Classification Clusters')
-    datapoints = self.get_numpy_dataset('analysis')
+    datapoints = self.get_numpy_dataset('analysis')[self.testing_indices[model]]
     pos_datapoints = datapoints[y_cm_pred >= 0.5]
     neg_datapoints = datapoints[y_cm_pred < 0.5]
     ax[0, 0].scatter(pos_datapoints[:, 0], pos_datapoints[:, 1], c = 'g')
     ax[0, 0].scatter(neg_datapoints[:, 0], neg_datapoints[:, 1], c = 'r')
+    
+    # Plot an ROC curve for supervised learning methods
+    fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
+    auc = roc_auc_score(y_cm, y_cm_pred)
+    ax[1, 1].plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
+    ax[1, 1].legend(loc=0, fontsize = 18)
+    roc_fig, roc_ax = plt.subplots(1)
+    roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
+    roc_ax.legend(loc=0, fontsize = 18)
+    roc_fig.savefig(file_loc + model + ' ROC Plot.png', bbox_inches = 'tight', dpi = 500)
 
-    # Plot dataset according to correct or incorrect classification
-    ax[1, 1].set_title('Incorrectly Classified')
-    for i,data in enumerate(ds):
-      if y_pred[i] != y_true[i]:
-        ax[1, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, data, c = color_map[y_true[i]])
+    # Obtain the testing data for reference
+    ds = self.get_numpy_dataset()[self.testing_indices[model]]
 
     return fig, ax
   
-  def get_group_plots_unsupervised(self, model_names = None, tags = None):
-      """Get plots for models according to their kinds and tags and groups together. Made for blocks of 4 unsupervised"""
+  # def get_group_plots_unsupervised(self, model_names = None, tags = None):
+  #     """Get plots for models according to their kinds and tags and groups together. Made for blocks of 4 unsupervised"""
 
-      # If unspecified, get plots for all models
-      models = []
-      if model_names is None:
-        models = self.models.keys()
-      else: models = model_names
+  #     # If unspecified, get plots for all models
+  #     models = []
+  #     if model_names is None:
+  #       models = self.models.keys()
+  #     else: models = model_names
 
-      # Only get plots for specified model groups by tag
-      if (not tags is None) and (model_names is None):
-        models = []
-        for tag in tags:
-          models += self.tags[tag]
+  #     # Only get plots for specified model groups by tag
+  #     if (not tags is None) and (model_names is None):
+  #       models = []
+  #       for tag in tags:
+  #         models += self.tags[tag]
 
-      # Predictions for all models in list
-      preds = self.get_model_predictions(model_names=models)
+  #     # Predictions for all models in list
+  #     preds = self.get_model_predictions(model_names=models)
       
-      # Define plot structure
-      cm_fig, cm_ax = plt.subplots(2, 2)
-      roc_fig, roc_ax = plt.subplots(1, 1)
-      roc_ax.set_xlabel('False Positive Rate')
-      roc_ax.set_ylabel('True Positive Rate')
+  #     # Define plot structure
+  #     cm_fig, cm_ax = plt.subplots(2, 2)
+  #     roc_fig, roc_ax = plt.subplots(1, 1)
+  #     roc_ax.set_xlabel('False Positive Rate')
+  #     roc_ax.set_ylabel('True Positive Rate')
     
-      # Set titles for figures   
-      roc_ax.set_title('ROC Curves for Unsupervised Models')
-      cm_fig.suptitle('Unsupervised Models Confusion Matrices')  
+  #     # Set titles for figures   
+  #     roc_ax.set_title('ROC Curves for Unsupervised Models')
+  #     cm_fig.suptitle('Unsupervised Models Confusion Matrices')  
       
-      # Unsupervised block handled differently
-      fp_plots_to_show = []
-      pos_correct_mask = []
-      neg_correct_mask = []
-      for i, model in enumerate(models):
+  #     # Unsupervised block handled differently
+  #     fp_plots_to_show = []
+  #     pos_correct_mask = []
+  #     neg_correct_mask = []
+  #     for i, model in enumerate(models):
             
-        # Select predictions and true labels for this model
-        y_pred = preds[model]
-        y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
+  #       # Select predictions and true labels for this model
+  #       y_pred = preds[model]
+  #       y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
                     
-        # Convert all labels to a binary format       
-        y_cm = np.array(y_true == 2, dtype = int)
-        if np.max(y_pred) > 1:
-          y_cm_pred = np.array(y_pred == 2, dtype = int)
-        else:
-          y_cm_pred = y_pred
+  #       # Convert all labels to a binary format       
+  #       y_cm = np.array(y_true == 2, dtype = int)
+  #       if np.max(y_pred) > 1:
+  #         y_cm_pred = np.array(y_pred == 2, dtype = int)
+  #       else:
+  #         y_cm_pred = y_pred
         
-        # Get a mask of correctly classified datapoints for plotting
-        this_pos_correct_mask = np.zeros(len(y_cm))
-        this_neg_correct_mask = np.zeros(len(y_cm))
-        temp_mask = np.zeros(len(y_cm))
-        for j in range(len(y_cm)):
-          if y_true[j] == 0:
-            temp_mask[j] = 1
-          if y_true[j] == 2 and y_cm_pred[j] == 1:
-            this_pos_correct_mask[j] = 1
-          elif y_true[j] == 0 and y_cm_pred[j] == 0:
-            this_neg_correct_mask[j] = 1
+  #       # Get a mask of correctly classified datapoints for plotting
+  #       this_pos_correct_mask = np.zeros(len(y_cm))
+  #       this_neg_correct_mask = np.zeros(len(y_cm))
+  #       temp_mask = np.zeros(len(y_cm))
+  #       for j in range(len(y_cm)):
+  #         if y_true[j] == 0:
+  #           temp_mask[j] = 1
+  #         if y_true[j] == 2 and y_cm_pred[j] == 1:
+  #           this_pos_correct_mask[j] = 1
+  #         elif y_true[j] == 0 and y_cm_pred[j] == 0:
+  #           this_neg_correct_mask[j] = 1
             
-        pos_correct_mask.append(this_pos_correct_mask.astype(bool))
-        neg_correct_mask.append(this_neg_correct_mask.astype(bool))
+  #       pos_correct_mask.append(this_pos_correct_mask.astype(bool))
+  #       neg_correct_mask.append(this_neg_correct_mask.astype(bool))
 
-        # Generate the ROC curve and add to axis
-        fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
-        auc = roc_auc_score(y_cm, y_cm_pred)
-        roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
-        roc_ax.legend(loc=0, fontsize = 12)
+  #       # Generate the ROC curve and add to axis
+  #       fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
+  #       auc = roc_auc_score(y_cm, y_cm_pred)
+  #       roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
+  #       roc_ax.legend(loc=0, fontsize = 12)
         
-        cm_ax[i % 2, int(i / 2)].set_title(model)
-        cm_ax[i % 2, int(i / 2)].set_title(model)
-        ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2, int(i / 2)], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
+  #       cm_ax[i % 2, int(i / 2)].set_title(model)
+  #       cm_ax[i % 2, int(i / 2)].set_title(model)
+  #       ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2, int(i / 2)], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
 
-        # Get data for plotting fps and comparison with positive sample
-        fp_plots_to_show.append(self.fp_plots[model])
+  #       # Get data for plotting fps and comparison with positive sample
+  #       fp_plots_to_show.append(self.fp_plots[model])
       
-      cm_fig.savefig('Figures/Unsupervised CMs.png', bbox_inches = 'tight', dpi=500)
-      roc_fig.savefig('Figures/Unsupervised ROC.png', bbox_inches = 'tight', dpi=500)
+  #     cm_fig.savefig('Figures/Unsupervised CMs.png', bbox_inches = 'tight', dpi=500)
+  #     roc_fig.savefig('Figures/Unsupervised ROC.png', bbox_inches = 'tight', dpi=500)
       
-      # Using last version of model here, should be the same indices ideally TODO - Enforce this?
-      samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
+  #     # Using last version of model here, should be the same indices ideally TODO - Enforce this?
+  #     samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
       
-      # Find a universal positive reference
-      pos_sample = None
-      for i in range(len(samples)):
-        if pos_correct_mask[0][i] and pos_correct_mask[1][i] and pos_correct_mask[2][i] and pos_correct_mask[3][i]:
-          pos_sample = samples[i]
-          break
+  #     # Find a universal positive reference
+  #     pos_sample = None
+  #     for i in range(len(samples)):
+  #       if pos_correct_mask[0][i] and pos_correct_mask[1][i] and pos_correct_mask[2][i] and pos_correct_mask[3][i]:
+  #         pos_sample = samples[i]
+  #         break
       
-      # Find a universal negative reference
-      neg_sample = None
-      for i in range(len(samples)):
-        if neg_correct_mask[0][i] and neg_correct_mask[1][i] and neg_correct_mask[2][i] and neg_correct_mask[3][i]:
-          neg_sample = samples[i]
-          break
+  #     # Find a universal negative reference
+  #     neg_sample = None
+  #     for i in range(len(samples)):
+  #       if neg_correct_mask[0][i] and neg_correct_mask[1][i] and neg_correct_mask[2][i] and neg_correct_mask[3][i]:
+  #         neg_sample = samples[i]
+  #         break
           
-      # If we can't find one of the references, we stop early
-      if pos_sample is None or neg_sample is None:
-        sample_type = 'positive' if pos_sample is None else 'negative'
-        raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
+  #     # If we can't find one of the references, we stop early
+  #     if pos_sample is None or neg_sample is None:
+  #       sample_type = 'positive' if pos_sample is None else 'negative'
+  #       raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
       
-      # Create plot and collect axes
-      fig, ax = plt.subplots(2, 3)
-      fig.suptitle('False Positive Classification Comparisons')
-      max_flour = np.max([np.max(fp_plots_to_show), np.max(pos_sample), np.max(neg_sample)])
+  #     # Create plot and collect axes
+  #     fig, ax = plt.subplots(2, 3)
+  #     fig.suptitle('False Positive Classification Comparisons')
+  #     max_flour = np.max([np.max(fp_plots_to_show), np.max(pos_sample), np.max(neg_sample)])
   
-      # Plot misclassified fps
-      for i, fp_ax in enumerate(fp_plots_to_show):
-        ax[i%2, 1 + int(i/2)].set_title(models[i])
-        ax[i%2, 1 + int(i/2)].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
-        ax[i%2, 1 + int(i/2)].set_xlabel('Time (Hours)')
-        ax[i%2, 1 + int(i/2)].set_ylabel('Fluorescence (A.U.)')
-        ax[i%2, 1 + int(i/2)].set_ylim([0, max_flour])
-        ax[i%2, 1 + int(i/2)].set_xlim([0, self.get_num_timesteps_raw() *.75])
+  #     # Plot misclassified fps
+  #     for i, fp_ax in enumerate(fp_plots_to_show):
+  #       ax[i%2, 1 + int(i/2)].set_title(models[i])
+  #       ax[i%2, 1 + int(i/2)].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
+  #       ax[i%2, 1 + int(i/2)].set_xlabel('Time (Hours)')
+  #       ax[i%2, 1 + int(i/2)].set_ylabel('Fluorescence (A.U.)')
+  #       ax[i%2, 1 + int(i/2)].set_ylim([0, max_flour])
+  #       ax[i%2, 1 + int(i/2)].set_xlim([0, self.get_num_timesteps_raw() *.75])
       
-      # Plot the reference samples
-      ax[0, 0].set_title('Positive Reference Sample')
-      ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, pos_sample, c = 'k')
-      ax[0, 0].set_xlabel('Time (Hours)')
-      ax[0, 0].set_ylabel('Fluorescence (A.U.)')
-      ax[0, 0].set_ylim([0, max_flour])
-      ax[0, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
-      ax[1, 0].set_title('Negative Reference Sample')
-      ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, neg_sample, c = 'k')
-      ax[1, 0].set_xlabel('Time (Hours)')
-      ax[1, 0].set_ylabel('Fluorescence (A.U.)')
-      ax[1, 0].set_ylim([0, max_flour])
-      ax[1, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
-      fig.savefig('Figures/Unsupervised Samples.png', bbox_inches = 'tight', dpi=500)
-      plt.show()
+  #     # Plot the reference samples
+  #     ax[0, 0].set_title('Positive Reference Sample')
+  #     ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, pos_sample, c = 'k')
+  #     ax[0, 0].set_xlabel('Time (Hours)')
+  #     ax[0, 0].set_ylabel('Fluorescence (A.U.)')
+  #     ax[0, 0].set_ylim([0, max_flour])
+  #     ax[0, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
+  #     ax[1, 0].set_title('Negative Reference Sample')
+  #     ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) * .75, neg_sample, c = 'k')
+  #     ax[1, 0].set_xlabel('Time (Hours)')
+  #     ax[1, 0].set_ylabel('Fluorescence (A.U.)')
+  #     ax[1, 0].set_ylim([0, max_flour])
+  #     ax[1, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
+  #     fig.savefig('Figures/Unsupervised Samples.png', bbox_inches = 'tight', dpi=500)
+  #     plt.show()
       
-      plt.title('Positive Reference Sample', fontdict={'fontsize':30})
-      plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample, c = 'k')
-      plt.xlabel('Time (Hours)')
-      plt.ylabel('Fluorescence (A.U.)')
-      plt.ylim([0, max_flour])
-      plt.xlim([0, self.get_num_timesteps_raw() *.75])
-      plt.show()
+  #     plt.title('Positive Reference Sample', fontdict={'fontsize':30})
+  #     plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample, c = 'k')
+  #     plt.xlabel('Time (Hours)')
+  #     plt.ylabel('Fluorescence (A.U.)')
+  #     plt.ylim([0, max_flour])
+  #     plt.xlim([0, self.get_num_timesteps_raw() *.75])
+  #     plt.show()
       
-      plt.title('Negative Reference Sample', fontdict={'fontsize':30})
-      plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
-      plt.xlabel('Time (Hours)')
-      plt.ylabel('Fluorescence (A.U.)')
-      plt.ylim([0, max_flour])
-      plt.xlim([0, self.get_num_timesteps_raw() *.75])
-      plt.show()
+  #     plt.title('Negative Reference Sample', fontdict={'fontsize':30})
+  #     plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
+  #     plt.xlabel('Time (Hours)')
+  #     plt.ylabel('Fluorescence (A.U.)')
+  #     plt.ylim([0, max_flour])
+  #     plt.xlim([0, self.get_num_timesteps_raw() *.75])
+  #     plt.show()
   
-  def get_group_plots_supervised(self, model_names = None, tags = None):
-    """Creates a plotting block of a positive/negative reference and 2 supervised models - someday this could be more generalized if helpful"""
-    # If unspecified, get plots for all models
-    models = []
-    if model_names is None:
-      models = self.models.keys()
-    else: models = model_names
+  # def get_group_plots_supervised(self, model_names = None, tags = None):
+    # """Creates a plotting block of a positive/negative reference and 2 supervised models - someday this could be more generalized if helpful"""
+    # # If unspecified, get plots for all models
+    # models = []
+    # if model_names is None:
+    #   models = self.models.keys()
+    # else: models = model_names
 
-    # Only get plots for specified model groups by tag
-    if (not tags is None) and (model_names is None):
-      models = []
-      for tag in tags:
-        models += self.tags[tag]
+    # # Only get plots for specified model groups by tag
+    # if (not tags is None) and (model_names is None):
+    #   models = []
+    #   for tag in tags:
+    #     models += self.tags[tag]
 
-    # Predictions for all models in list
-    preds = self.get_model_predictions(model_names=models)
+    # # Predictions for all models in list
+    # preds = self.get_model_predictions(model_names=models)
     
-    # Define plot structure
-    cm_fig, cm_ax = plt.subplots(1, 2)
-    roc_fig, roc_ax = plt.subplots(1, 1)
-    roc_ax.set_xlabel('False Positive Rate')
-    roc_ax.set_ylabel('True Positive Rate')
+    # # Define plot structure
+    # cm_fig, cm_ax = plt.subplots(1, 2)
+    # roc_fig, roc_ax = plt.subplots(1, 1)
+    # roc_ax.set_xlabel('False Positive Rate')
+    # roc_ax.set_ylabel('True Positive Rate')
   
-    # Set titles for figures   
-    roc_fig.suptitle('ROC Curves for Supervised Models')
-    cm_fig.suptitle('Supervised Models Confusion Matrices')
+    # # Set titles for figures   
+    # roc_fig.suptitle('ROC Curves for Supervised Models')
+    # cm_fig.suptitle('Supervised Models Confusion Matrices')
     
-    # Supervised block handled differently
-    fp_plots_to_show = []
-    pos_correct_mask = []
-    neg_correct_mask = []
-    for i, model in enumerate(models):
-      if model == 'MLP Raw':
-        continue
+    # # Supervised block handled differently
+    # fp_plots_to_show = []
+    # pos_correct_mask = []
+    # neg_correct_mask = []
+    # for i, model in enumerate(models):
+    #   if model == 'MLP Raw':
+    #     continue
           
-      # Select predictions and true labels for this model
-      y_pred = preds[model]
-      y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
+    #   # Select predictions and true labels for this model
+    #   y_pred = preds[model]
+    #   y_true = self.get_numpy_dataset('labels')[self.testing_indices[model]]
                   
-      # Convert all labels to a binary format
-      if np.max(y_pred) > 1:
-        y_cm = np.array(np.rint(y_true) == 2, dtype = int)
-        y_cm_pred = np.array(np.rint(y_pred) == 2, dtype=int)
-      else:
-        y_cm_pred = y_pred 
-        y_cm = y_true = np.asarray(y_true == 2, dtype=int)
+    #   # Convert all labels to a binary format
+    #   if np.max(y_pred) > 1:
+    #     y_cm = np.array(np.rint(y_true) == 2, dtype = int)
+    #     y_cm_pred = np.array(np.rint(y_pred) == 2, dtype=int)
+    #   else:
+    #     y_cm_pred = y_pred 
+    #     y_cm = y_true = np.asarray(y_true == 2, dtype=int)
 
-      # Generate the ROC curve and add to axis
-      fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
-      auc = roc_auc_score(y_cm, y_cm_pred)
-      roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
-      roc_ax.legend(loc=0, fontsize = 18)
+    #   # Generate the ROC curve and add to axis
+    #   fpr, tpr, thresh = roc_curve(y_cm, y_cm_pred)
+    #   auc = roc_auc_score(y_cm, y_cm_pred)
+    #   roc_ax.plot(fpr,tpr,label=model + ", auc=%.3f" % auc)
+    #   roc_ax.legend(loc=0, fontsize = 18)
       
-      cm_ax[i % 2].set_title(model)
-      ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
+    #   cm_ax[i % 2].set_title(model)
+    #   ConfusionMatrixDisplay.from_predictions(y_true=y_cm, y_pred=y_cm_pred, ax=cm_ax[i % 2], normalize='true', display_labels=['Negative', 'Positive'], colorbar=False)
       
-      # Get data for plotting fps and comparison with positive sample
-      this_pos_correct_mask = np.zeros(len(y_cm))
-      this_neg_correct_mask = np.zeros(len(y_cm))
-      for j in range(len(y_cm)):
-        if y_cm[j] == 1 and y_cm_pred[j] == 1:
-          this_pos_correct_mask[j] = 1
-        elif y_cm[j] == 0 and y_cm_pred[j] == 0:
-          this_neg_correct_mask[j] = 1
+    #   # Get data for plotting fps and comparison with positive sample
+    #   this_pos_correct_mask = np.zeros(len(y_cm))
+    #   this_neg_correct_mask = np.zeros(len(y_cm))
+    #   for j in range(len(y_cm)):
+    #     if y_cm[j] == 1 and y_cm_pred[j] == 1:
+    #       this_pos_correct_mask[j] = 1
+    #     elif y_cm[j] == 0 and y_cm_pred[j] == 0:
+    #       this_neg_correct_mask[j] = 1
           
-      pos_correct_mask.append(this_pos_correct_mask.astype(bool))
-      neg_correct_mask.append(this_neg_correct_mask.astype(bool))
-      fp_plots_to_show.append(self.fp_plots[model])
+    #   pos_correct_mask.append(this_pos_correct_mask.astype(bool))
+    #   neg_correct_mask.append(this_neg_correct_mask.astype(bool))
+    #   fp_plots_to_show.append(self.fp_plots[model])
       
-    cm_fig.savefig('Figures/Supervised CMs.png', dpi=500, bbox_inches='tight')
-    roc_fig.savefig('Figures/Supervised ROC.png', dpi=500, bbox_inches='tight')
+    # cm_fig.savefig(file_loc + 'Supervised CMs.png', dpi=500, bbox_inches='tight')
+    # roc_fig.savefig('Figures/Supervised ROC.png', dpi=500, bbox_inches='tight')
       
-    # Using last version of model here, should be the same indices ideally TODO - Enforce this?
-    samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
+    # # Using last version of model here, should be the same indices ideally TODO - Enforce this?
+    # samples = self.get_numpy_dataset('raw')[self.testing_indices[model]]
     
-    # Find a universal positive reference
-    pos_sample = None
-    for i in range(len(samples)):
-      if pos_correct_mask[0][i] and pos_correct_mask[1][i]:
-        pos_sample = samples[i]
+    # # Find a universal positive reference
+    # pos_sample = None
+    # for i in range(len(samples)):
+    #   if pos_correct_mask[0][i] and pos_correct_mask[1][i]:
+    #     pos_sample = samples[i]
     
-    # Find a universal negative reference
-    for i in range(len(samples)):
-      if neg_correct_mask[0][i] and neg_correct_mask[1][i]:
-        neg_sample = samples[i]
+    # # Find a universal negative reference
+    # for i in range(len(samples)):
+    #   if neg_correct_mask[0][i] and neg_correct_mask[1][i]:
+    #     neg_sample = samples[i]
         
-    # If we can't find one of the references, we stop early
-    if pos_sample is None or neg_sample is None:
-      sample_type = 'positive' if pos_sample is None else 'negative'
-      raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
+    # # If we can't find one of the references, we stop early
+    # if pos_sample is None or neg_sample is None:
+    #   sample_type = 'positive' if pos_sample is None else 'negative'
+    #   raise Exception('Could not find ' + sample_type + ' reference sample with agreement between models!')
     
-    max_flour = np.max([np.max(fp_plots_to_show), np.max(pos_sample), np.max(neg_sample)])
+    # max_flour = np.max([np.max(fp_plots_to_show), np.max(pos_sample), np.max(neg_sample)])
     
-    # Create plot and collect axes
-    fig, ax = plt.subplots(2, 2)
-    fig.suptitle('False Positive Classification Comparisons')
-    for i, fp_ax in enumerate(fp_plots_to_show):
-      ax[i, 1].set_title(models[i])
-      ax[i, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
-      ax[i, 1].set_xlabel('Time (Hours)')
-      ax[i, 1].set_ylabel('Fluorescence (A.U.)')
-      ax[i, 1].set_ylim([0, max_flour])
-      ax[i, 1].set_xlim([0, self.get_num_timesteps_raw() *.75])
+    # # Create plot and collect axes
+    # fig, ax = plt.subplots(2, 2)
+    # fig.suptitle('False Positive Classification Comparisons')
+    # for i, fp_ax in enumerate(fp_plots_to_show):
+    #   ax[i, 1].set_title(models[i])
+    #   ax[i, 1].plot(np.arange(self.get_num_timesteps_raw()) * .75, fp_ax, c = 'k')
+    #   ax[i, 1].set_xlabel('Time (Hours)')
+    #   ax[i, 1].set_ylabel('Fluorescence (A.U.)')
+    #   ax[i, 1].set_ylim([0, max_flour])
+    #   ax[i, 1].set_xlim([0, self.get_num_timesteps_raw() *.75])
     
     
-    ax[0, 0].set_title('Positive Reference Sample')
-    ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample, c = 'k')
-    ax[0, 0].set_xlabel('Time (Hours)')
-    ax[0, 0].set_ylabel('Fluorescence (A.U.)')
-    ax[0, 0].set_ylim([0, max_flour])
-    ax[0, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
+    # ax[0, 0].set_title('Positive Reference Sample')
+    # ax[0, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample, c = 'k')
+    # ax[0, 0].set_xlabel('Time (Hours)')
+    # ax[0, 0].set_ylabel('Fluorescence (A.U.)')
+    # ax[0, 0].set_ylim([0, max_flour])
+    # ax[0, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
     
-    ax[1, 0].set_title('Negative Reference Sample')
-    ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
-    ax[1, 0].set_xlabel('Time (Hours)')
-    ax[1, 0].set_ylabel('Fluorescence (A.U.)')
-    ax[1, 0].set_ylim([0, max_flour])
-    ax[1, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
-    fig.savefig('Figures/Supervised Samples.png', bbox_inches='tight', dpi=500)
-    plt.show()
+    # ax[1, 0].set_title('Negative Reference Sample')
+    # ax[1, 0].plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
+    # ax[1, 0].set_xlabel('Time (Hours)')
+    # ax[1, 0].set_ylabel('Fluorescence (A.U.)')
+    # ax[1, 0].set_ylim([0, max_flour])
+    # ax[1, 0].set_xlim([0, self.get_num_timesteps_raw() *.75])
+    # fig.savefig('Figures/Supervised Samples.png', bbox_inches='tight', dpi=500)
+    # plt.show()
     
-    plt.title('Positive Reference Sample', fontdict={'fontsize':30})
-    plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample, c = 'k')
-    plt.xlabel('Time (Hours)')
-    plt.ylabel('Fluorescence (A.U.)')
-    plt.ylim([0, max_flour])
-    plt.xlim([0, self.get_num_timesteps_raw() *.75])
-    plt.show()
+    # plt.title('Positive Reference Sample', fontdict={'fontsize':30})
+    # plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, pos_sample, c = 'k')
+    # plt.xlabel('Time (Hours)')
+    # plt.ylabel('Fluorescence (A.U.)')
+    # plt.ylim([0, max_flour])
+    # plt.xlim([0, self.get_num_timesteps_raw() *.75])
+    # plt.show()
     
-    plt.title('Negative Reference Sample', fontdict={'fontsize':30})
-    plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
-    plt.xlabel('Time (Hours)')
-    plt.ylabel('Fluorescence (A.U.)')
-    plt.ylim([0, max_flour])
-    plt.xlim([0, self.get_num_timesteps_raw() *.75])
-    plt.show()
+    # plt.title('Negative Reference Sample', fontdict={'fontsize':30})
+    # plt.plot(np.arange(self.get_num_timesteps_raw()) / .75, neg_sample, c = 'k')
+    # plt.xlabel('Time (Hours)')
+    # plt.ylabel('Fluorescence (A.U.)')
+    # plt.ylim([0, max_flour])
+    # plt.xlim([0, self.get_num_timesteps_raw() *.75])
+    # plt.show()

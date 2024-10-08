@@ -135,6 +135,9 @@ class QuICSeedIF:
       raw_data = raw_data[metadata['content'] != 'blank']
       analysis = analysis[metadata['content'] != 'blank']
       metadata = metadata[metadata['content'] != 'blank']
+      raw_data = raw_data[metadata['content'] != 'bl']
+      analysis = analysis[metadata['content'] != 'bl']
+      metadata = metadata[metadata['content'] != 'bl']
 
     # Error Checking
     if len(metadata) != len(raw_data) or len(metadata) != len(analysis):

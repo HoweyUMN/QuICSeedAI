@@ -13,7 +13,7 @@ from scipy.stats import wilcoxon
 
 class MLP:
 
-    def __init__(self, NDIM, class_weight = None, file_path = './MLP/', model_name = 'mlp', num_models = 5):
+    def __init__(self, NDIM, class_weight = None, file_path = './MLP/', model_name = 'mlp'):
         """Initializes a DNN and scaler which can be used in standardized training
         Class weight is unimplemented with pretrained models"""
         self.model_path = file_path + model_name + '.h5'

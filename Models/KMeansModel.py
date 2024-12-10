@@ -1,7 +1,7 @@
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import classification_report, f1_score
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 import pickle
 import numpy as np
 import pickle
@@ -20,13 +20,13 @@ class KMeansModel:
         if os.path.exists(self.model_path) and os.path.exists(self.scaler_path) and os.path.exists(self.pca_path):
             self.model = pickle.load(open(self.model_path, 'rb'))
             self.scaler = pickle.load(open(self.scaler_path, 'rb'))
-            self.pca = pickle.load(open(self.pca_path, 'rb'))
+            self.pca_model = pickle.load(open(self.pca_path, 'rb'))
             self.pretrained = True
         
         else: # Generate new if doesn't exist
             self.model = KMeans(n_clusters=n_clusters, init='random', max_iter=500, n_init=200, random_state=random_state)
-            self.pca = PCA(n_components=4)
-            self.scaler = StandardScaler()
+            self.pca_model = PCA(n_components=4)
+            self.scaler = MinMaxScaler([0, 1])
             
         print('\nKMeans Model Loaded:')
         print(type(self.model))
@@ -34,7 +34,8 @@ class KMeansModel:
     def fit(self, x = None, y = None):  
         if not self.pretrained:
             x = self.scaler.fit_transform(x)
-            x = self.pca.fit_transform(x)
+            if self.pca:
+                x = self.pca_model.fit_transform(x)
             
             self.model.fit(x)
             
@@ -42,7 +43,7 @@ class KMeansModel:
                 pickle.dump(self.model, f)
                 
             with open(self.pca_path, 'wb') as f:
-                pickle.dump(self.pca, f)
+                pickle.dump(self.pca_model, f)
         
             with open(self.scaler_path, 'wb') as f:
                 pickle.dump(self.scaler, f)
@@ -51,8 +52,9 @@ class KMeansModel:
     def predict(self, data, labels, binary = True):
         """Makes predictions about data"""
 
-        data = StandardScaler().fit_transform(data)
-        data = self.pca.fit_transform(data)
+        data = MinMaxScaler([0, 1]).fit_transform(data)
+        if self.pca:
+            data = self.pca_model.fit_transform(data)
         
         preds = self.model.predict(data)
         max = np.max(preds)

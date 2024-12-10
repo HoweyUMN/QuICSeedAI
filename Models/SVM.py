@@ -9,21 +9,22 @@ import os
 class SVM:
     """A simple interface between a KMeans model and the generic ML-QuIC structure. All the methods are unaltered, just a mask to keep things consistent."""
 
-    def __init__(self, kernel = 'rbf', random_state = 333, file_path = './', model_name = 'svm'):
+    def __init__(self, kernel = 'rbf', random_state = 333, file_path = './', model_name = 'svm', pca = True):
         self.model_path = file_path + model_name + '.pkl'
         self.scaler_path = file_path + model_name + '_scaler.pkl'
         self.pca_path = file_path + model_name + '_pca.pkl'
         self.pretrained = False
+        self.pca = pca
         
         if os.path.exists(self.model_path) and os.path.exists(self.scaler_path) and os.path.exists(self.pca_path):
             self.model = pickle.load(open(self.model_path, 'rb'))
             self.scaler = pickle.load(open(self.scaler_path, 'rb'))
-            self.pca = pickle.load(open(self.pca_path, 'rb'))
+            self.pca_model = pickle.load(open(self.pca_path, 'rb'))
             self.pretrained = True
         else: # Generate new if doesn't exist
             self.model = SVC(kernel=kernel, random_state=random_state, gamma = 'auto', probability=True)
             self.scaler = StandardScaler()
-            self.pca = PCA(n_components=4)
+            self.pca_model = PCA(n_components=4)
         
         print('\nSVM Model Loaded:')
         print(type(self.model))
@@ -32,7 +33,8 @@ class SVM:
         if not self.pretrained:
             self.scaler.fit(x)
             x = self.scaler.transform(x)
-            x = self.pca.fit_transform(x)
+            if self.pca:
+                x = self.pca_model.fit_transform(x)
             
             y = np.array(y == 2)
             self.model.fit(x, y)
@@ -41,7 +43,7 @@ class SVM:
                 pickle.dump(self.model, f)
                 
             with open(self.pca_path, 'wb') as f:
-                pickle.dump(self.pca, f)
+                pickle.dump(self.pca_model, f)
         
             with open(self.scaler_path, 'wb') as f:
                 pickle.dump(self.scaler, f)
@@ -50,7 +52,8 @@ class SVM:
         """Binary is unimplemented because SVM is a true binary classifier with no ambiguity
         - Labels are unused"""
         data = StandardScaler().fit_transform(data)
-        data = self.pca.transform(data)
+        if self.pca:
+            data = self.pca_model.transform(data)
         
         return self.model.predict(data)
     

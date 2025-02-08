@@ -10,7 +10,7 @@ import os
 class KMeansModel:
     """A simple interface between a KMeans model and the generic ML-QuIC structure. All the methods are unaltered, just a mask to keep things consistent."""
 
-    def __init__(self, n_clusters = 2, random_state = 7, file_path = './', model_name = 'kmeans', pca = True):
+    def __init__(self, n_clusters = 2, random_state = 42, file_path = './', model_name = 'kmeans', pca = True):
         self.model_path = file_path + model_name + '.pkl'
         self.scaler_path = file_path + model_name + '_scaler.pkl'
         self.pca_path = file_path + model_name + '_pca.pkl'
